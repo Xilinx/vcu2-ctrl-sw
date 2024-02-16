@@ -1,0 +1,365 @@
+
+2015-06-01 (v1.0.15):
+---------------------
+  Added feature(s) :
+     - HEVC dependent slice support
+     - Add VP9 segment management for QP per LCU
+
+  Fixed Bug(s)
+     - Fix memory leak
+     - Fix VPS and SPS flags conformance issue
+
+  Other change(s) :
+    - Add 64-bit support
+    - Add support for Android
+
+2015-06-30 (v1.0.16):
+---------------------
+  Added feature(s) :
+    - QpCtrlMode = LOAD_QP allows to load the QP table from an external QP file.
+    - more configuration parameters are now available from command line (see section 2 of the user manual)
+    - CBR is now available in VP9
+    - Add command list support
+
+  Fixed Bug(s) :
+    -- Fix candidate reference list construction in VP9
+    -- Fix Segment data management and VP9 Frame Header
+
+  Other change(s) :
+    - Remove warnings and errors from static analysis
+    - Align Traces with hardware testbenches
+
+2015-07-08 (v1.0.17) :
+---------------------
+  Added feature(s) :
+
+  Fixed Bug(s) :
+    -- Fix rate control initialization and limit.
+    -- Fix VP9 encapsulation (IVF), increment frame number.
+
+  Other change(s) :
+    -- Rename SLICE_SKIP into SLICE_REPEAT for VP9 encoder
+    -- Cleanup segment IDs initialisation in QP table
+    -- Cleanup config files
+
+
+2015-07-30 (v1.0.18) :
+---------------------
+  Added feature(s) :
+    -- Add Preliminary support for VBR rate control
+    -- Add support for HW IP that includes monochrome option
+
+  Fixed Bug(s) :
+    -- Fix output trace file in command list mode with several slices per frame
+
+  Other change(s) :
+    -- improve Custom Gop by allowing POC value different from source order
+
+2015-08-10 (v1.0.19) :
+---------------------
+  Added feature(s) :
+    -- Add Preliminary support of Long Term reference picture
+    -- Add AllRefInPast flag in command registers
+    -- Add Reconstructed and Motion vectors output disabled flag in command registers
+    -- Add Driver tests documentation
+  Fixed Bug(s) :
+    -- Remove srand utilization
+    -- Add to_string replacement for android libc
+
+2015-09-04 (v1.0.20) :
+---------------------
+  Added feature(s) :
+    -- Add PYRAMIDAL_GOP
+    -- up to 4 consecutives B frame in DEFAULT_GOP mode
+  Fixed Bug(s) :
+    -- Fix multi-core IP management
+
+2015-10-08 (v1.0.21) :
+---------------------
+  Fixed Bug(s) :
+    -- Fix crash issue when src yuv format was different from reconstructed yuv Format.
+    -- Fix relative QP table feature in VP9
+    -- Fix Low delay B Gop pattern when number of frame is not multiple of Gop.length
+
+2015-11-30 (v1.0.23) :
+---------------------
+  Change Makefile architecture using intermediate libraries.
+  Fixed Bug(s) :
+    -- Fix Residual bug that could occur in Monochrome and 4:2:2
+
+2016-02-05 (v1.0.24) :
+---------------------
+    -- Fix entropy status write back for exception detection
+    -- Change Slice distribution in Multi-slice Wavefront Encoding
+	-- Add External source buffers support
+
+2016-03-25 (v1.0.25) :
+---------------------
+    -- Add DMABUF Interface support
+
+2016-05-19 (v1.0.26) :
+---------------------
+  Added feature(s) :
+    -- 64 bit compilation support for CtrlSW (runtime not validated)
+    -- Improved multichannel scheduling
+2016-06-03 (v1.0.27):
+---------------------
+    -- Fix potential missing register field in AVC multicore status merge
+    -- Fix POC encoding in slice header
+
+2016-06-07 (v1.0.27b):
+-----------
+  Added feature(s) :
+    -- buffer allocation is controlled by the user
+    -- dmabuf support
+
+2016-08-08 (v1.0.28):
+---------------------
+    -- Fix memory leak in the DevicePool
+
+2016-09-09 (v1.0.29):
+---------------------
+    -- Add CBR option for scene change resilience
+    -- Fix division by zero when all LCUs are skipped in multi core AVC
+
+2016-09-09 (v1.0.29b):
+---------------------
+  Added feature(s) :
+    -- buffer allocation is controlled by the user
+    -- dmabuf support
+
+2016-12-23 (v1.0.30):
+---------------------
+    -- Enhance error feedback
+    -- Sync Enc1 / Enc2 (Phase 1)
+
+2017-3-01 (v1.0.32):
+--------------------
+    -- Encoder and Decoder in the same package
+
+  Added features (Decoder) :
+    -- enhance error concealment
+    -- fix hang issue
+
+
+2017-06-09 (v1.0.33):
+--------------------
+
+  Added features (Codec) :
+    -- Move user API header files into single include folder
+    -- Separate lib_ref in the build system
+    -- Improve multichannel fairness.
+    -- Add support for partial AVC level 6 in the decoder (8K yuvs)
+
+2017-06-30 (v1.0.34)
+--------------------
+
+    -- change eos mechanism to avoid a one frame buffer latency (encode)
+  API:
+    -- make lib_encode and lib_decode APIs uniform
+    -- use std types (uint32_t ...)
+    -- #1026 improve error resilience
+    -- #1117 soname versioning for lib_encode and lib_decode
+    -- #1123 fix vbr target bitrate
+
+2017-07-21 (v1.0.35)
+--------------------
+
+  Added features (Codec) :
+    -- subframe latency (encode)
+    -- fix crashes when the dma allocation failed
+    -- fix freqIDR
+    -- external SEI support (encode)
+    -- Fix command line parsing : hexadecimal value are allowed again
+
+  API:
+    -- export less headers in include: We do not export IScheduler.h anymore.
+    -- exe_encoder and exe_decoder do not depend on any internal headers anymore
+    -- add API to add section in the stream buffer from outside lib_encode (external SEI support)
+
+  Tickets Fixed:
+    -- #1158 wrong soname
+    -- #1122 filler data
+
+
+2017-09-04 (v1.0.36)
+--------------------
+
+  Added features (Codec) :
+    -- fix dpb buffer management (decode)
+    -- fix sem_wait and equivalent when signal are present
+    -- use minQP, maxQP from channel parameter in AUTO_QP (encoder)
+    -- fix compliance when using SEI message (encode)
+    -- fix rate control CONST_QP (P-frames, B-frames QPs values were interchanged)
+    -- fix potential race condition on EOS : we could miss a frame (encoder)
+
+  Tickets Fixed:
+    -- #1096 deadlock on decoder deinit
+    -- #1216 config file error
+
+2017-09-21 (v1.0.37)
+--------------------
+
+  Added features (Codec) :
+    -- Fix error paths when signals are sent to the application using lib_encode / lib_decode
+    -- Better error reporting when configuration files are wrong
+    -- Size optimization: Streampart, Cmdlist and channel context size optimizations
+    -- Better error reporting at channel creation
+    -- Stream buffer overcommitted while encoding are now properly released at AL_Encoder_Destroy
+    -- Fix memory leak in decoder mcu mode
+    -- Fix potential data race (decoder)
+    -- Fix cmdlist wrapping data race (decoder)
+    -- Relaxed watchdog timeout constraint in slicelat
+
+  API:
+    -- AL_Settings_CheckCoherency now returns -1 at fatal failure, number of incoherency
+    if it corrected some.
+    -- HLIBREF was removed, the lib_ref is now fully an AL_TIpCtrl. The destruction
+    of the lib_ref is now handled using the virtual destruction of the AL_TIpCtrl
+    -- RefAlloc is now fully an AL_TAllocator and implements the virtual destruction too
+    -- AL_Encoder_Create and AL_Decoder_Create signature change to enable better error reporting
+
+  Tickets Fixed:
+    -- #1226 alignment between driver and ctrlsw
+    -- #1229 entropy mode is now correctly set to CAVLC when CABAC is not valid
+
+2017-11-14 (v1.0.38)
+--------------------
+
+  Added features (Coded) :
+    -- Fix hardware rate control overflow
+    -- Scene Change resilience improvement
+    -- Footprint / latency optimization at exe_decoder level. (preallocation)
+    -- Better error resilience
+    -- Fix watchdog handling in slicelat
+    -- partial fix of multichannel scheduling
+
+  API:
+    -- Remove I_DecChannel.h header from the decoder api. To fix compilation,
+    just include lib_decode.h instead. I_DecChannel type is now a handle for the
+    user. This also removes DecBuffers.h, DecPicParam.h, DecSliceParam.h, StartCodeParam.h
+    -- Rename AL_Decoder_PutDecPict -> AL_Decoder_PutDisplayPicture
+    -- Remove AL_Decoder_ForceStop API. This is now automatically done when you destroy the decoder
+    without calling AL_Decoder_Flush
+    -- Remove AL_Decoder_GetDecPict from decoder API
+    -- Remove AL_Decoder_ReleaseDecPict from decoder API. You should use AL_Decoder_PutDisplayPicture
+    instead.
+
+2018-01-26 (v1.0.39)
+-----------
+2018-04-13 (v1.0.40)
+--------------------
+  API:
+    -- Remove DecChanParam.h header from the decoder api
+    -- All API functions should have the AL_ prefix
+    -- AL_TBuffer now takes ownership of the memory handle passed to it
+    -- The encoder source buffer stride can now be different from the the minimum supported pitch.
+    -- Some function were renamed for better comprehension (older function were deprecated with a link to the new function)
+    -- Documentation for almost all the user facing structure of the libraries
+    -- Add adaptive B gop-mode feature
+    -- Add interlace alternate field support for encoder and decoder
+    -- Decoder now takes a user stride into account
+
+2018-08-23 (v1.0.41)
+--------------------
+  Added Features :
+    -- Add support of 32 channels
+    -- Add (VPS), SPS, PPS and SEI Recovery point on first frame of GDR
+    -- Multi-channel support in slice lat mode
+    -- new API for SEI insertionin Encoder
+    -- SEI message callback in Decoder
+
+  Fixes :
+    -- L2Prefetch Buffer + Wavefront not allowed
+    -- Decoder error resilience improvement
+    -- Improve rate control on some specific sequence
+    -- Fix dynamic gop length change on I-frame
+
+2018-11-14 (v1.0.42)
+--------------------
+  Added Features :
+    -- LowLatency Phase 2
+
+  API:
+    -- Use planes (AL_TPlanes) to describe YUV buffers: SrcMetaData
+    -- AL_DPB_LOW_REF becomes AL_DPB_NO_REORDERING
+    -- AL_GetMaxNalSize requires codec, dimension, chroma mode, bitdepth, level and profile idc to compute a more accurate value
+    -- Version of the API is now 0.10.0
+    -- Add AL_VERSION_MAJOR, AL_VERSION_MINOR and AL_VERSION_STEP #defines
+
+  Fixes :
+    -- Improve rate control on specific sequences
+    -- Handle out of order interrupts in avc low latency case
+    -- Improve offline two pass algorithm quality
+    -- Memory leak in the decoder destroy channel call
+
+2019-01-18 (v1.0.43)
+--------------------
+  Added Features :
+    -- Encoder dynamic resolution change
+    -- Decoder dynamic resolution change
+
+  API:
+    -- Version of the API is now 0.11.0
+    -- Decoder resolution found callback is now called on every valid configuration found and not anymore on the first valid configuration
+    -- Add a new encoder API (AL_Encoder_SetInputResolution) to signal the CtrlSW of the new input resolution
+
+  Fixes :
+    -- Improve rate control on specific sequences
+    -- Sync IP
+    -- Several minors bugs
+
+2019-02-15 (v1.0.44)
+--------------------
+  Added Features :
+    -- Temporal layer ID insertion
+    -- Frame delta QP based on temporal ID
+    -- Lambda factor based on temporal ID
+    -- Colorimetry
+    -- Frame skipping support (rate control)
+
+  API:
+    -- Version of the API is now 0.12.0
+    -- Add a new encoder configuration parameter named tempDQP in the GopParam (in cfg: Gop.TempDQP [GOP])
+    -- Add a new encoder configuration parameter named LdaFactors in ChanParam (in cfg: LambdaFactors [SETTINGS])
+
+  Fixes :
+    -- Improve rate control on specific sequences
+    -- Several minors bugs
+
+2019-09-09 (v1.0.X)
+-------------------
+API:
+  -- AL_TIDecChannel becomes AL_IDecScheduler.
+  It is now possible to create multiple channels using the same AL_IDecScheduler.
+  -- The AL_TDecoder doesn't take ownership of the AL_IDecScheduler anymore
+
+2019-11-18 (v1.0.52)
+--------------------
+  Added Features:
+    -- JPEG pixel density can be configured using AspectRatioUnit/XDensity/YDensity in configuration file.
+
+  Fixes:
+    -- Removed bad register access when initializing AVC core
+
+2020-06-26 (v1.0.57) alpha release
+----------------------------------
+  Alpha Features:
+    -- Multichannel support for the Reference library of the Decoder
+    -- Support for multichannel in AL_Decoder.exe using the --next-chan flag
+
+2020-08-14 (v1.0.60-m) alpha release
+----------------------------------
+  Alpha Features:
+    -- Support for multichannel in AL_Dec_Scheduler.exe and AL_Decoder.exe using the -proxy flag (linux support only)
+       $ ./AL_Dec_Scheduler.exe --verbose 10
+       $ ./AL_Decoder.exe -proxy -in stream.hevc -out /dev/null -hevc # Will ask AL_Dec_Scheduler.exe to do the decoding.
+       If using -proxy and --next-chan, set -proxy in the first channel and all of them will talk with the server.
+    -- Many bug fixes in the support of multichannel of Jpeg and HEVC in the lib_ref
+
+2020-08-21 (v1.0.62-m) alpha release
+----------------------------------
+  Alpha Features:
+    -- Bug fixes on Jpeg channels creation / destruction / scheduling
+    -- Better error handling and better polling in the proxy interface
+    -- Many misc bug fixes in error paths

@@ -1,0 +1,21 @@
+LIB_BITSTREAM_SRC:=\
+	lib_bitstream/BitStreamLite.c\
+	lib_bitstream/RbspEncod.c
+
+ifneq ($(ENABLE_ENC_ITU),0)
+  LIB_BITSTREAM_SRC+=lib_bitstream/Cabac.c
+endif
+
+ifneq ($(ENABLE_ENC_AVC),0)
+	LIB_BITSTREAM_SRC+=lib_bitstream/AVC_RbspEncod.c
+	LIB_BITSTREAM_SRC+=lib_bitstream/AVC_SkippedPict.c
+endif
+
+ifneq ($(ENABLE_ENC_HEVC),0)
+	LIB_BITSTREAM_SRC+=lib_bitstream/HEVC_RbspEncod.c
+	LIB_BITSTREAM_SRC+=lib_bitstream/HEVC_SkippedPict.c
+endif
+
+
+
+
