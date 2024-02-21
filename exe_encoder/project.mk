@@ -53,7 +53,7 @@ TARGETS+=AL_Encoder.sh
 endif
 
 # for compilation time reduction (we don't need this to be optimized)
-$(BIN)/$(THIS_EXE_ENCODER)/CfgParser.cpp.o: CFLAGS+=-O0
+$(BIN)/$(THIS_EXE_ENCODER)/CfgParser.cpp.o: CFLAGS+=-O0 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 EXE_CFG_PARSER_SRCS:=\
   $(THIS_EXE_ENCODER)/ParserMain.cpp\
