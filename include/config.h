@@ -5,6 +5,10 @@
 
 #define c906 2
 
+#ifndef AL_ENABLE_RISCV
+#define AL_ENABLE_RISCV 1
+#endif
+
 #ifndef AL_FBC_NUM_TOGGLE_IDX
 #define AL_FBC_NUM_TOGGLE_IDX 8
 #endif
