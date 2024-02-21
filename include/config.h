@@ -45,7 +45,7 @@
 #define NUM_COMMAND_REGISTER 1024
 #endif
 #ifndef ENCODER_DEVICES
-#define ENCODER_DEVICES { "/dev/allegroIP" }
+#define ENCODER_DEVICES { "/dev/al_e2xx" }
 #endif
 #ifndef ENCODER_CORE_FREQUENCY
 #define ENCODER_CORE_FREQUENCY (950 * 1000 * 1000)
@@ -66,7 +66,7 @@
 #define DECODER_CYCLES_FOR_BLK_32X32 { 940, 940, 1156, 1696 }
 #endif
 #ifndef DECODER_DEVICES
-#define DECODER_DEVICES { "/dev/allegroDecodeIP" }
+#define DECODER_DEVICES { "/dev/al_d3xx" }
 #endif
 #ifndef AL_ENC_NUM_CORES
 #define AL_ENC_NUM_CORES 2
