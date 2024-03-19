@@ -38,9 +38,11 @@ extern "C" {
 #include "lib_app/BufPool.h"
 #include "lib_app/MD5.h"
 #include "lib_app/PixMapBufPool.h"
+#include "lib_app/SinkFilter.h"
+#include "lib_app/SinkCrop.h"
 #include "lib_app/SinkCrcDump.h"
+#include "lib_app/SinkFrame.h"
 #include "lib_app/UnCompFrameReader.h"
-#include "lib_app/UnCompFrameWriter.h"
 #include "lib_app/YuvIO.h"
 #include "lib_app/console.h"
 #include "lib_app/convert.h"
@@ -52,7 +54,6 @@ extern "C" {
 
 #include "CmdParser.h"
 #include "CodecUtils.h"
-#include "Conversion.h"
 #include "InputLoader.h"
 #include "IpDevice.h"
 #include "SinkYuvCrc.h"
@@ -152,7 +153,8 @@ private:
 
   void CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType);
 
-  unique_ptr<MultiSink> multisink = unique_ptr<MultiSink>(new MultiSink);
+  unique_ptr<MultiSink> multisinkRaw = unique_ptr<MultiSink>(new MultiSink);
+  unique_ptr<MultiSink> multisinkOut = unique_ptr<MultiSink>(new MultiSink);
 
   AL_EFbStorageMode eMainOutputStorageMode;
   bool bOutputWritersCreated = false;
@@ -190,7 +192,9 @@ void DisplayManager::Configure(Config const& config)
       eMainOutputStorageMode = AL_FB_RASTER;
   }
 
-  bHasOutput = (config.bEnableYUVOutput || config.bCertCRC || !config.sCrc.empty() || !config.md5File.empty());
+  bool bMd5Output = !config.md5File.empty();
+
+  bHasOutput = (config.bEnableYUVOutput || config.bCertCRC || bMd5Output);
   bEnableYuvOutput = config.bEnableYUVOutput;
 
   if(bHasOutput)
@@ -212,27 +216,28 @@ void DisplayManager::Configure(Config const& config)
       }
     }
 
-    if(!config.md5File.empty() && !bMainOutputCompression)
+    if(bMd5Output && !bMainOutputCompression)
     {
-      std::unique_ptr<IFrameSink> md5Calculator = createYuvMd5Calculator(config.md5File);
-      multisink->addSink(md5Calculator);
+      std::unique_ptr<IFrameSink> md5Calculator(createYuvMd5Calculator(config.md5File));
+      std::unique_ptr<IFrameSink> md5Sink(new SinkCrop(md5Calculator));
+      multisinkOut->addSink(md5Sink);
     }
-
-    std::unique_ptr<IFrameSink> crcDump = createStreamCrcDump(config.sCrc);
-    multisink->addSink(crcDump);
 
     if(config.bCertCRC)
     {
       const string sCertCrcFile = "crc_certif_res.hex";
-      std::unique_ptr<IFrameSink> crcCSCalculator = createCSCrcCalculator(sCertCrcFile);
-      multisink->addSink(crcCSCalculator);
+      std::unique_ptr<IFrameSink> crcCSCalculator(createCSCrcCalculator(sCertCrcFile));
+      std::unique_ptr<IFrameSink> crcSink(new SinkCrop(crcCSCalculator));
+      multisinkOut->addSink(crcSink);
     }
-
   }
 
   iBitDepth = config.iOutputBitDepth;
   tOutputFourCC = config.tOutputFourCC;
   MaxFrames = config.iMaxFrames;
+
+  std::unique_ptr<IFrameSink> crcDump(createStreamCrcDump(config.sCrc));
+  multisinkRaw->addSink(crcDump);
 
   if(!config.hdrFile.empty())
     pHDRWriter = shared_ptr<HDRWriter>(new HDRWriter(config.hdrFile));
@@ -249,8 +254,9 @@ void DisplayManager::ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDe
   AL_EFbStorageMode eOutputStorageMode = eMainOutputStorageMode;
 
   {
-    std::unique_ptr<IFrameSink> uncompressedSink = std::unique_ptr<UnCompFrameWriter>(new UnCompFrameWriter(hFileOut, eOutputStorageMode, eOutputType));
-    multisink->addSink(uncompressedSink);
+    std::unique_ptr<IFrameSink> frameSink(createUnCompFrameSink(hFileOut, eOutputStorageMode));
+    std::unique_ptr<IFrameSink> uncompressedSink(new SinkFilter(eOutputType, frameSink));
+    multisinkOut->addSink(uncompressedSink);
   }
 
   bOutputWritersCreated = true;
@@ -271,7 +277,7 @@ void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, 
   AL_TMetaData* pOrigMeta = AL_Buffer_GetMetaData(pSrcFrame, eMetaType);
 
   if(!pOrigMeta)
-    throw runtime_error("Metadata does is NULL");
+    throw runtime_error("Metadata is NULL");
   switch(eMetaType)
   {
   case AL_META_TYPE_PIXMAP:
@@ -327,6 +333,8 @@ bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int iBit
         iBitDepth = iBitDepthAlloc;
 
       int iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
+
+      multisinkRaw->ProcessFrame(pDisplayFrame);
 
       if(bHasOutput)
         ProcessFrame(*pDisplayFrame, *pInfo, iEffectiveBitDepth, tOutputFourCC);
@@ -722,9 +730,8 @@ static void SetDecOutputSettings(AL_TDecOutputSettings& tUserOutputSettings, AL_
 
   tUserOutputSettings.tPicFormat.eStorageMode = GetMainOutputStorageMode(tUserOutputSettings, tDecSettings.eFBStorageMode);
 
-  if(tUserOutputSettings.tPicFormat.eStorageMode == AL_FB_TILE_32x4 || tUserOutputSettings.tPicFormat.eStorageMode == AL_FB_TILE_64x4)
+  if(IsTile(tUserOutputSettings.tPicFormat.eStorageMode))
     tUserOutputSettings.tPicFormat.eSamplePackMode = AL_SAMPLE_PACK_MODE_PACKED;
-
 }
 
 /******************************************************************************/
@@ -877,15 +884,20 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
       AL_COMPONENT_ORDER_YUV,
       AL_SAMPLE_PACK_MODE_BYTE,
       false,
-      false
+      tRecPicFormat.bMSB
     };
 
     tFourCCOut = AL_GetFourCC(tConvPicFormat);
   }
+  else if(tFourCCOut == FOURCC(hard))
+  {
+    tFourCCOut = tFourCCRecBuf;
+  }
 
   bool bCompress = AL_IsCompressed(tFourCCRecBuf);
+  bool bConvert = !bCompress && tFourCCOut != tFourCCRecBuf;
 
-  if(!bCompress)
+  if(bConvert)
   {
     if(tInputFourCC != tFourCCOut && bNewInputFourCCFound)
     {
@@ -898,23 +910,10 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
     AL_TBuffer* YuvBuffer = NULL;
     ConvertFrameBuffer(&tRecBuf, YuvBuffer, iBdOut, tPos, tFourCCOut);
 
-    auto const iSizePix = (iBdOut + 7) >> 3;
-
-    if(tCrop.bCropping)
-      CropFrame(YuvBuffer, iSizePix, tCrop);
-
     CopyMetaData(YuvBuffer, &tRecBuf, AL_META_TYPE_DISPLAY_INFO);
 
-    multisink->ProcessFrame(YuvBuffer);
+    multisinkOut->ProcessFrame(YuvBuffer);
 
-    if(tCrop.bCropping)
-    {
-      tCrop.uCropOffsetBottom = -tCrop.uCropOffsetBottom;
-      tCrop.uCropOffsetLeft = -tCrop.uCropOffsetLeft;
-      tCrop.uCropOffsetRight = -tCrop.uCropOffsetRight;
-      tCrop.uCropOffsetTop = -tCrop.uCropOffsetTop;
-      CropFrame(YuvBuffer, iSizePix, tCrop);
-    }
     AL_Buffer_Destroy(YuvBuffer);
   }
   else
@@ -923,7 +922,8 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
 
     if(pMeta)
       pMeta->tCrop = tCrop;
-    multisink->ProcessFrame(&tRecBuf);
+
+    multisinkOut->ProcessFrame(&tRecBuf);
   }
 
 }
@@ -1424,7 +1424,6 @@ void SafeRunChannelMain(WorkerConfig& w)
 
   // Create the decoders
   // -------------------
-
   if(config.UseBaseDecoder())
   {
     shared_ptr<I_IpDevice> device = w.devices->at(DEVICE_BASE_DECODER);

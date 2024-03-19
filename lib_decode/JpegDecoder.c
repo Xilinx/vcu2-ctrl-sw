@@ -31,34 +31,21 @@ static bool initChannel(AL_TDecCtx* pCtx)
   pChan->iHeight = pStreamSettings->tDim.iHeight;
   pChan->eMaxChromaMode = pStreamSettings->eChroma;
 
-  AL_TDecScheduler_CB_EndParsing endParsingCallback = { NULL, NULL };
-  AL_TDecScheduler_CB_EndDecoding endDecodingCallback = { Jpeg_EndDecoding, pCtx };
-  AL_ERR eError = AL_IDecScheduler_CreateChannel(&pCtx->hChannel, pCtx->pScheduler, &pCtx->tMDChanParam, endParsingCallback, endDecodingCallback);
-
-  if(AL_IS_ERROR_CODE(eError))
-  {
-    AL_Default_Decoder_SetError(pCtx, eError, -1, true);
-    pCtx->eChanState = CHAN_INVALID;
-    return false;
-  }
-
-  pCtx->eChanState = CHAN_CONFIGURED;
-
-  return true;
+  return AL_Default_Decoder_CreateChannel(pCtx, NULL, Jpeg_EndDecoding);
 }
 
 /*****************************************************************************/
 static bool DecodeHeader(AL_TDecCtx* pCtx, TCircBuffer* pBufStream, AL_TDecJpegParam* pJP)
 {
   AL_TRbspParser rp;
-  InitRbspParser(pBufStream, pCtx->BufNoAE.tMD.pVirtualAddr, pCtx->BufNoAE.tMD.uSize, false, &rp);
+  InitRbspParser(pBufStream, NULL, 0, false, &rp);
 
   uint8_t uByte = u(&rp, 8);
 
   if(uByte != 0xFF)
     return false;
 
-  while(more_rbsp_data(&rp) && uByte == 0xFF)
+  while(uByte == 0xFF && get_avail_size(&rp) >= 8)
     uByte = u(&rp, 8);
 
   EJpeg_Marker eMarker = UNKNOWN_MARKER | uByte;

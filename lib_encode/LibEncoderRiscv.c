@@ -234,7 +234,7 @@ static void copyPictureType(struct msg_itf_evt_end_encoding* event)
   }
 }
 
-static void handleEvtEndDecodingCommon(struct msg_itf_evt_end_encoding* event)
+static void handleEvtEndEncodingCommon(struct msg_itf_evt_end_encoding* event)
 {
   if(event->pStream)
     copyStreamSections(event);
@@ -243,7 +243,7 @@ static void handleEvtEndDecodingCommon(struct msg_itf_evt_end_encoding* event)
     copyPictureType(event);
 }
 
-static void handleEvtEndDecodingHostCb(struct msg_itf_evt_end_encoding* event)
+static void handleEvtEndEncodingHostCb(struct msg_itf_evt_end_encoding* event)
 {
   AL_HEncoderWrapper* pWrapper;
   AL_TBuffer* pStream;
@@ -258,17 +258,17 @@ static void handleEvtEndDecodingHostCb(struct msg_itf_evt_end_encoding* event)
   pWrapper->CB[iLayerID].func(pWrapper->CB[iLayerID].userParam, pStream, pSrc, iLayerID);
 }
 
-static void handleEvtEndDecoding(void* buffer)
+static void handleEvtEndEncoding(void* buffer)
 {
   struct msg_itf_evt_end_encoding event;
 
   EVENT_UNMARSHALL(event, buffer, msg_itf_evt_end_encoding);
 
-  handleEvtEndDecodingCommon(&event);
-  handleEvtEndDecodingHostCb(&event);
+  handleEvtEndEncodingCommon(&event);
+  handleEvtEndEncodingHostCb(&event);
 }
 
-static void handleEvtEndDecodingCopyStats(struct msg_itf_evt_end_encoding_with_stat* event)
+static void handleEvtEndEncodingCopyStats(struct msg_itf_evt_end_encoding_with_stat* event)
 {
   AL_TBuffer* pStream = (AL_TBuffer*)(intptr_t)event->end_encoding.pStream;
   AL_TRateCtrlMetaData* pMeta;
@@ -282,15 +282,15 @@ static void handleEvtEndDecodingCopyStats(struct msg_itf_evt_end_encoding_with_s
   pMeta->tRateCtrlStats = event->stats;
 }
 
-static void handleEvtEndDecodingWithStat(void* buffer)
+static void handleEvtEndEncodingWithStat(void* buffer)
 {
   struct msg_itf_evt_end_encoding_with_stat event;
 
   EVENT_UNMARSHALL(event, buffer, msg_itf_evt_end_encoding_with_stat);
 
-  handleEvtEndDecodingCommon(&event.end_encoding);
-  handleEvtEndDecodingCopyStats(&event);
-  handleEvtEndDecodingHostCb(&event.end_encoding);
+  handleEvtEndEncodingCommon(&event.end_encoding);
+  handleEvtEndEncodingCopyStats(&event);
+  handleEvtEndEncodingHostCb(&event.end_encoding);
 }
 
 static void handleEvtDestroyMarker(void* buffer)
@@ -331,10 +331,10 @@ static void* pollerThread(void* arg)
       handleEvtBufferRefcount(event.event);
       break;
     case MSG_ITF_TYPE_EVT_END_ENCODING:
-      handleEvtEndDecoding(event.event);
+      handleEvtEndEncoding(event.event);
       break;
     case MSG_ITF_TYPE_EVT_END_ENCODING_WITH_STAT:
-      handleEvtEndDecodingWithStat(event.event);
+      handleEvtEndEncodingWithStat(event.event);
       break;
     case MSG_ITF_TYPE_EVT_DESTROY_MARKER:
       handleEvtDestroyMarker(event.event);

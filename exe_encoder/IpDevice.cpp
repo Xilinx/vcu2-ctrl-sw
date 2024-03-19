@@ -13,7 +13,6 @@ extern "C"
 #include "lib_fpga/DmaAlloc.h"
 #include "lib_log/LoggerDefault.h"
 #include "lib_log/TimerSoftware.h"
-#include "lib_encode/LibEncoderRiscv.h"
 }
 using namespace std;
 

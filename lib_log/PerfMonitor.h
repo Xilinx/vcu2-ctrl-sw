@@ -8,5 +8,5 @@
 static uint8_t const PERF_VAL_X = 255;
 static uint8_t const PERF_VAL_Z = 254;
 
-#define EventLog(S)
-#define EventLogV(S, V)
+#define EventLog(Logger, Signal)
+#define EventLogV(Logger, Signal, Value)

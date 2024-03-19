@@ -24,7 +24,7 @@
 #endif
 
 #if defined(_WIN32)
-#include <windows.h>
+#include "extra/dirent/include/dirent.h"
 #endif
 
 #include "lib_app/BufPool.h"
@@ -35,10 +35,9 @@
 #include "lib_app/plateform.h"
 #include "lib_app/utils.h"
 #include "lib_app/CompFrameReader.h"
-#include "lib_app/CompFrameWriter.h"
 #include "lib_app/CompFrameCommon.h"
 #include "lib_app/UnCompFrameReader.h"
-#include "lib_app/UnCompFrameWriter.h"
+#include "lib_app/SinkFrame.h"
 
 #include "CfgParser.h"
 #include "CodecUtils.h"
@@ -1205,51 +1204,34 @@ void SafeChannelMain(ConfigFile& cfg, CIpDevice* pIpDevice, CIpDeviceParam& para
     if(!LayerRecFileName.empty())
     {
 
-      std::shared_ptr<ofstream> m_RecFile(new ofstream(LayerRecFileName, ios::binary));
-
-      if(!m_RecFile->is_open())
-        throw runtime_error("Invalid output file");
-
-      std::unique_ptr<IFrameSink> recOutput;
-      auto& tChParam = Settings.tChParam[0];
-
-      if(tChParam.eEncOptions & AL_OPT_COMPRESS)
+      if(Settings.tChParam[0].eEncOptions & AL_OPT_COMPRESS)
       {
-        std::shared_ptr<ofstream> m_RecMapFile(new ofstream(LayerRecFileName + ".map", ios::binary));
-
-        if(!m_RecMapFile->is_open())
-          throw runtime_error("Invalid output map file");
-
-        ETileMode eTileMode = TILE_64x4_v0;
-
-        eTileMode = TILE_64x4_v1;
-
-        recOutput = std::unique_ptr<CompFrameWriter>(new CompFrameWriter(m_RecFile, m_RecMapFile, ETileModeToEFbStorageMode(eTileMode), 0, AL_OUTPUT_MAIN));
+        std::unique_ptr<IFrameSink> recOutput(createCompFrameSink(LayerRecFileName, LayerRecFileName + ".map", AL_FB_TILE_64x4, 0));
+        multisinkRec->addSink(recOutput);
       }
       else
       {
-        recOutput = std::unique_ptr<UnCompFrameWriter>(new UnCompFrameWriter(m_RecFile, AL_FB_RASTER, AL_OUTPUT_MAIN));
+        std::unique_ptr<IFrameSink> recOutput(createUnCompFrameSink(LayerRecFileName, AL_FB_RASTER));
+        multisinkRec->addSink(recOutput);
       }
-
-      multisinkRec->addSink(recOutput);
     }
     enc->RecOutput[i] = std::move(multisinkRec);
   }
 
   auto multisink = unique_ptr<MultiSink>(new MultiSink);
 
-  std::unique_ptr<IFrameSink> bitstreamOutput = createBitstreamWriter(StreamFileName, cfg);
+  std::unique_ptr<IFrameSink> bitstreamOutput(createBitstreamWriter(StreamFileName, cfg));
   multisink->addSink(bitstreamOutput);
 
   if(!RunInfo.sStreamMd5Path.empty())
   {
-    std::unique_ptr<IFrameSink> md5Calculator = createStreamMd5Calculator(RunInfo.sStreamMd5Path);
+    std::unique_ptr<IFrameSink> md5Calculator(createStreamMd5Calculator(RunInfo.sStreamMd5Path));
     multisink->addSink(md5Calculator);
   }
 
   if(!RunInfo.bitrateFile.empty())
   {
-    std::unique_ptr<IFrameSink> bitrateOutput = createBitrateWriter(RunInfo.bitrateFile, cfg);
+    std::unique_ptr<IFrameSink> bitrateOutput(createBitrateWriter(RunInfo.bitrateFile, cfg));
     multisink->addSink(bitrateOutput);
   }
 
@@ -1272,7 +1254,7 @@ void SafeChannelMain(ConfigFile& cfg, CIpDevice* pIpDevice, CIpDeviceParam& para
       auto layer_multisink = unique_ptr<MultiSink>(new MultiSink);
       layer_multisink->addSink(enc->RecOutput[iLayerID]);
       string LayerMd5FileName = RunInfo.sRecMd5Path;
-      std::unique_ptr<IFrameSink> md5Calculator = createYuvMd5Calculator(LayerMd5FileName, cfg);
+      std::unique_ptr<IFrameSink> md5Calculator(createYuvMd5Calculator(LayerMd5FileName, cfg));
       layer_multisink->addSink(md5Calculator);
       enc->RecOutput[iLayerID] = std::move(layer_multisink);
     }

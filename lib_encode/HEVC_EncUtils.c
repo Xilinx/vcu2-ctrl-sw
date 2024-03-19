@@ -25,12 +25,14 @@ static void AL_sUpdateProfileTierLevel(AL_THevcProfilevel* pPTL, AL_TEncChanPara
       pPTL->general_progressive_source_flag = 1;
       pPTL->general_frame_only_constraint_flag = 1;
     }
+#if AL_ENABLE_SW_HEVC_INTERLACED
     else
     {
       pPTL->general_progressive_source_flag = 0;
       pPTL->general_interlaced_source_flag = 1;
       pPTL->general_frame_only_constraint_flag = 0;
     }
+#endif
 
     if(pPTL->general_profile_idc == AL_GET_PROFILE_IDC(AL_PROFILE_HEVC_RExt))
     {
@@ -376,11 +378,13 @@ void AL_HEVC_GenerateSPS(AL_TSps* pISPS, AL_TEncSettings const* pSettings, AL_TE
     pSPS->vui_param.field_seq_flag = 0;
     pSPS->vui_param.frame_field_info_present_flag = 0;
   }
+#if AL_ENABLE_SW_HEVC_INTERLACED
   else
   {
     pSPS->vui_param.field_seq_flag = 1;
     pSPS->vui_param.frame_field_info_present_flag = 1;
   }
+#endif
   pSPS->vui_param.default_display_window_flag = 0;
 
   AL_UpdateAspectRatio(&pSPS->vui_param, pChParam->uEncWidth, pChParam->uEncHeight, pSettings->eAspectRatio);

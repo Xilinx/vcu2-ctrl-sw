@@ -21,8 +21,8 @@ inline bool AreDimensionsEqual(AL_TDimension tDim1, AL_TDimension tDim2)
 }
 
 /****************************************************************************/
-CompFrameWriter::CompFrameWriter(std::shared_ptr<std::ostream> recFile, std::shared_ptr<std::ostream> mapFile, AL_EFbStorageMode eStorageMode, uint8_t uCompMode, AL_EOutputType outputID) :
-  BaseFrameSink(recFile, eStorageMode, outputID), m_mapFile(mapFile), m_uResolutionFrameCnt(0), m_tResolutionPointerPos(-1), m_uCompMode(uCompMode)
+CompFrameWriter::CompFrameWriter(std::shared_ptr<std::ostream> recFile, std::shared_ptr<std::ostream> mapFile, AL_EFbStorageMode eStorageMode, uint8_t uCompMode) :
+  BaseFrameWriter(recFile, eStorageMode), m_mapFile(mapFile), m_uResolutionFrameCnt(0), m_tResolutionPointerPos(-1), m_uCompMode(uCompMode)
 {
   m_bWriteHeader = true;
   m_tCrop = {};
@@ -116,34 +116,21 @@ bool CompFrameWriter::MustDoDimInTileCalculus(AL_TDimension const& tPicDim, AL_T
 }
 
 /****************************************************************************/
-void CompFrameWriter::ProcessFrame(AL_TBuffer* pBuf)
+void CompFrameWriter::WriteFrame(AL_TBuffer* pBuf, AL_TCropInfo* pCrop, AL_EPicStruct ePicStruct)
 {
-  AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_DISPLAY_INFO));
-  AL_TCropInfo tCrop {};
-  AL_EOutputType eOutputID = AL_OUTPUT_MAIN;
-
-  AL_EPicStruct ePicStruct = AL_PS_FRM;
-
-  if(pMeta)
-  {
-    tCrop = pMeta->tCrop;
-    eOutputID = pMeta->eOutputID;
-    ePicStruct = pMeta->ePicStruct;
-  }
+  if(pCrop)
+    m_tCrop = *pCrop;
 
   AL_TPicFormat tPicFormat;
   AL_GetPicFormat(AL_PixMapBuffer_GetFourCC(pBuf), &tPicFormat);
-  bool updateCalculus = MustDoDimInTileCalculus(AL_PixMapBuffer_GetDimension(pBuf), tPicFormat, tCrop);
-
-  if(pMeta)
-    m_tCrop = pMeta->tCrop;
+  bool updateCalculus = MustDoDimInTileCalculus(AL_PixMapBuffer_GetDimension(pBuf), tPicFormat, m_tCrop);
 
   m_tFourCC = AL_PixMapBuffer_GetFourCC(pBuf);
   AL_EFbStorageMode currentStorageMode = AL_GetStorageMode(m_tFourCC);
   AL_GetPicFormat(m_tFourCC, &m_tPicFormat);
   m_tPicDim = AL_PixMapBuffer_GetDimension(pBuf);
 
-  if(currentStorageMode != m_eStorageMode || eOutputID != m_iOutputID)
+  if(currentStorageMode != m_eStorageMode)
     return;
 
   // To write header in constructor the fourCC needs to be known which is not the case in decoder prealloc

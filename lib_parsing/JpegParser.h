@@ -6,7 +6,7 @@
 #include "lib_common_dec/DecSliceParam.h"
 #include "lib_common_dec/RbspParser.h"
 
-typedef enum e_JpegMarker
+typedef enum
 {
   UNKNOWN_MARKER = 0xFF00,
   SOF0_MARKER = 0xFFC0,

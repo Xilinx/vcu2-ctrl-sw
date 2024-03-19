@@ -40,6 +40,7 @@
 #include "lib_common/CodecHook.h"
 #include "lib_common_dec/HDRMeta.h"
 #include "lib_common_dec/StreamSettingsInternal.h"
+#include "lib_common_dec/DecInfoInternal.h"
 
 #include "lib_assert/al_assert.h"
 
@@ -422,6 +423,25 @@ void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus const* pS
 }
 
 /*****************************************************************************/
+bool AL_Default_Decoder_CreateChannel(AL_TDecCtx* pCtx, void (* pfnEndParsing)(void* pUserParam, int iFrameID, int iSliceID), void (* pfnEndDecoding)(void* pUserParam, AL_TDecPicStatus const* pPicStatus))
+{
+  AL_TDecScheduler_CB_EndParsing endParsingCallback = { pfnEndParsing, pCtx };
+  AL_TDecScheduler_CB_EndDecoding endDecodingCallback = { pfnEndDecoding, pCtx };
+  AL_ERR eError = AL_IDecScheduler_CreateChannel(&pCtx->hChannel, pCtx->pScheduler, &pCtx->tMDChanParam, endParsingCallback, endDecodingCallback);
+
+  if(AL_IS_ERROR_CODE(eError))
+  {
+    AL_Default_Decoder_SetError(pCtx, eError, -1, true);
+    pCtx->eChanState = CHAN_INVALID;
+    return false;
+  }
+
+  pCtx->eChanState = CHAN_CONFIGURED;
+
+  return true;
+}
+
+/*****************************************************************************/
 void AL_Default_Decoder_ReleaseStreamBuffer(void* pUserParam, AL_TBuffer* pBufStream)
 {
   AL_TDecCtx* pCtx = (AL_TDecCtx*)pUserParam;
@@ -531,8 +551,7 @@ void AL_Default_Decoder_Destroy(AL_TDecoder* pAbsDec)
   AL_TDecCtx* pCtx = &pDec->ctx;
   AL_Assert(pCtx);
 
-  if(pDec->ctx.PictMngr.bOutSettingsConfigured)
-    AL_PictMngr_DecommitPool(&pCtx->PictMngr);
+  AL_PictMngr_DecommitPool(&pCtx->PictMngr);
 
   if(pCtx->Feeder)
     AL_Feeder_Destroy(pCtx->Feeder);
@@ -1023,10 +1042,6 @@ static bool SearchNextDecodingUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* p
 }
 
 /*****************************************************************************/
-int AL_AVC_GetMaxDpbBuffers(AL_TStreamSettings const* pStreamSettings, int iSPSMaxRefFrames);
-int AL_HEVC_GetMaxDpbBuffers(AL_TStreamSettings const* pStreamSettings);
-
-/*****************************************************************************/
 static bool CheckAvailSpace(AL_TDecCtx* pCtx, AL_TSeiMetaData* pMeta)
 {
   uint32_t uLengthNAL = GetNonVclSize(&pCtx->Stream);
@@ -1211,52 +1226,59 @@ static size_t DeltaPosition(uint32_t uFirstPos, uint32_t uSecondPos, uint32_t uS
 }
 
 /*****************************************************************************/
-static void updateStartCodeNumber(AL_TDecCtx* pCtx, AL_TScBufferAddrs* ScdBuffer, AL_TBuffer* pStream, AL_TCircMetaData* pMeta, TMemDesc* startCodeArray, uint16_t numSC)
+static void updateStartCodeNumber(AL_TDecCtx* pCtx, AL_TDecScdBuffers* pScdBuffers, AL_TCircMetaData* pMeta, uint16_t numSC)
 {
-  pMeta->iOffset = (pMeta->iOffset + pCtx->ScdStatus.uNumBytes) % AL_Buffer_GetSize(pStream);
+  uint32_t uMaxSize = pScdBuffers->StreamBuf.tMD.uSize;
+
+  pMeta->iOffset = (pMeta->iOffset + pCtx->ScdStatus.uNumBytes) % uMaxSize;
   pMeta->iAvailSize -= pCtx->ScdStatus.uNumBytes;
 
-  AL_TStartCode* src = (AL_TStartCode*)startCodeArray->pVirtualAddr;
+  AL_TStartCode* src = (AL_TStartCode*)pScdBuffers->ScdBufOut.tMD.pVirtualAddr;
 
   AL_TNal* dst = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
 
   if(pCtx->uNumSC && numSC)
-    dst[pCtx->uNumSC - 1].uSize = DeltaPosition(dst[pCtx->uNumSC - 1].tStartCode.uPosition, src[0].uPosition, ScdBuffer->uMaxSize);
+    dst[pCtx->uNumSC - 1].uSize = DeltaPosition(dst[pCtx->uNumSC - 1].tStartCode.uPosition, src[0].uPosition, uMaxSize);
 
   for(int i = 0; i < numSC; i++)
   {
     dst[pCtx->uNumSC].tStartCode = src[i];
 
     if(i + 1 == numSC)
-      dst[pCtx->uNumSC].uSize = DeltaPosition(src[i].uPosition, pMeta->iOffset, ScdBuffer->uMaxSize);
+      dst[pCtx->uNumSC].uSize = DeltaPosition(src[i].uPosition, pMeta->iOffset, uMaxSize);
     else
-      dst[pCtx->uNumSC].uSize = DeltaPosition(src[i].uPosition, src[i + 1].uPosition, ScdBuffer->uMaxSize);
+      dst[pCtx->uNumSC].uSize = DeltaPosition(src[i].uPosition, src[i + 1].uPosition, uMaxSize);
 
     pCtx->uNumSC++;
   }
 }
 
 /*****************************************************************************/
-static AL_TScBufferAddrs initScdBuffer(AL_TBuffer* pStream, AL_TCircMetaData* pMeta, TMemDesc* startCodeOutputArray)
+static void initScdBuffer(AL_TDecScdBuffers* pScdBufs, AL_TBuffer* pStream, AL_TCircMetaData* pMeta, TBuffer* pScdOut)
 {
-  AL_TScBufferAddrs ScdBuffer = { 0 };
-  ScdBuffer.pBufOut = startCodeOutputArray->uPhysicalAddr;
-  ScdBuffer.pStream = AL_Buffer_GetPhysicalAddress(pStream);
-  ScdBuffer.uMaxSize = AL_Buffer_GetSize(pStream);
-  ScdBuffer.uOffset = pMeta->iOffset;
-  ScdBuffer.uAvailSize = pMeta->iAvailSize;
+  MemDesc_Init(&pScdBufs->StreamBuf.tMD);
+  pScdBufs->StreamBuf.tMD.pVirtualAddr = AL_Buffer_GetVirtualAddress(pStream);
+  pScdBufs->StreamBuf.tMD.uPhysicalAddr = AL_Buffer_GetPhysicalAddress(pStream);
+  pScdBufs->StreamBuf.tMD.uSize = AL_Buffer_GetSize(pStream);
 
-  return ScdBuffer;
+  pScdBufs->StreamMeta = *pMeta;
+
+  MemDesc_Init(&pScdBufs->ScdBufOut.tMD);
+  pScdBufs->ScdBufOut.tMD.pVirtualAddr = pScdOut->tMD.pVirtualAddr;
+  pScdBufs->ScdBufOut.tMD.uPhysicalAddr = pScdOut->tMD.uPhysicalAddr;
+  pScdBufs->ScdBufOut.tMD.uSize = pScdOut->tMD.uSize;
+
+  AL_CleanupMemory(pScdBufs->ScdBufOut.tMD.pVirtualAddr, pScdBufs->ScdBufOut.tMD.uSize);
 }
 
 /*****************************************************************************/
-static void GenerateScdIpTraces(AL_TDecCtx* pCtx, AL_TScBufferAddrs ScdBuffer, AL_TBuffer* pStream, TMemDesc scBuffer)
+static void GetScdAddrs(AL_TScBufferAddrs* pScdBufAddrs, AL_TDecScdBuffers const* pScdBuffers)
 {
-  (void)pCtx;
-  (void)ScdBuffer;
-  (void)pStream;
-  (void)scBuffer;
-
+  pScdBufAddrs->pStream = pScdBuffers->StreamBuf.tMD.uPhysicalAddr;
+  pScdBufAddrs->uMaxSize = pScdBuffers->StreamBuf.tMD.uSize;
+  pScdBufAddrs->uOffset = pScdBuffers->StreamMeta.iOffset;
+  pScdBufAddrs->uAvailSize = pScdBuffers->StreamMeta.iAvailSize;
+  pScdBufAddrs->pBufOut = pScdBuffers->ScdBufOut.tMD.uPhysicalAddr;
 }
 
 /*************************************************************************//*!
@@ -1280,13 +1302,12 @@ static bool RefillStartCodes(AL_TDecCtx* pCtx, AL_TBuffer* pStream)
 
   if(isJPEG(pCtx->pChanParam->eCodec))
   {
-    TMemDesc startCodeOutputArray = pCtx->BufSCD.tMD;
-    AL_TStartCode* pStartCode = (AL_TStartCode*)startCodeOutputArray.pVirtualAddr;
-    uint16_t maxNumMarkers = startCodeOutputArray.uSize / sizeof(AL_TStartCode);
+    AL_TDecScdBuffers ScdBuffers;
+    initScdBuffer(&ScdBuffers, pStream, pMeta, &pCtx->BufSCD);
+    AL_TStartCode* pStartCode = (AL_TStartCode*)ScdBuffers.ScdBufOut.tMD.pVirtualAddr;
+    uint16_t maxNumMarkers = ScdBuffers.ScdBufOut.tMD.uSize / sizeof(AL_TStartCode);
     pCtx->ScdStatus.uNumBytes = SearchMarkers(pStream, pMeta, pStartCode, maxNumMarkers, &pCtx->ScdStatus);
-    AL_TScBufferAddrs ScdBuffer = initScdBuffer(pStream, pMeta, &startCodeOutputArray);
-    updateStartCodeNumber(pCtx, &ScdBuffer, pStream, pMeta, &startCodeOutputArray, pCtx->ScdStatus.uNumSC);
-
+    updateStartCodeNumber(pCtx, &ScdBuffers, pMeta, pCtx->ScdStatus.uNumSC);
     return pCtx->ScdStatus.uNumSC > 0;
   }
   int const SCDHardwareConstraintMinSize = 5;
@@ -1294,15 +1315,13 @@ static bool RefillStartCodes(AL_TDecCtx* pCtx, AL_TBuffer* pStream)
   if(pMeta->iAvailSize < SCDHardwareConstraintMinSize)
     return false;
 
-  TMemDesc startCodeOutputArray = pCtx->BufSCD.tMD;
-  AL_TScBufferAddrs ScdBuffer = initScdBuffer(pStream, pMeta, &startCodeOutputArray);
-
-  AL_CleanupMemory(startCodeOutputArray.pVirtualAddr, startCodeOutputArray.uSize);
+  AL_TDecScdBuffers ScdBuffers;
+  initScdBuffer(&ScdBuffers, pStream, pMeta, &pCtx->BufSCD);
 
   AL_TDecScheduler_CB_EndStartCode callback = { EndScd, pCtx };
 
   AL_TScParam ScParam = { 0 };
-  ScParam.MaxSize = startCodeOutputArray.uSize / sizeof(AL_TStartCode);
+  ScParam.MaxSize = ScdBuffers.ScdBufOut.tMD.uSize / sizeof(AL_TStartCode);
   ScParam.eCodec = pCtx->pChanParam->eCodec;
 
   /* if the start code couldn't be launched because the start code queue is full,
@@ -1313,7 +1332,11 @@ static bool RefillStartCodes(AL_TDecCtx* pCtx, AL_TBuffer* pStream)
 
   do
   {
-    AL_IDecScheduler_SearchSC(pCtx->pScheduler, pCtx->hStartCodeChannel, &ScParam, &ScdBuffer, callback);
+
+    AL_TScBufferAddrs ScdBufAddrs;
+    GetScdAddrs(&ScdBufAddrs, &ScdBuffers);
+
+    AL_IDecScheduler_SearchSC(pCtx->pScheduler, pCtx->hStartCodeChannel, &ScParam, &ScdBufAddrs, callback);
     Rtos_WaitEvent(pCtx->ScDetectionComplete, AL_WAIT_FOREVER);
 
     if(pCtx->ScdStatus.uNumBytes == 0)
@@ -1324,10 +1347,8 @@ static bool RefillStartCodes(AL_TDecCtx* pCtx, AL_TBuffer* pStream)
   }
   while(pCtx->ScdStatus.uNumBytes == 0);
 
-  AL_TStartCode* src = (AL_TStartCode*)startCodeOutputArray.pVirtualAddr;
-  Rtos_InvalidateCacheMemory(src, startCodeOutputArray.uSize);
-  GenerateScdIpTraces(pCtx, ScdBuffer, pStream, startCodeOutputArray);
-  updateStartCodeNumber(pCtx, &ScdBuffer, pStream, pMeta, &startCodeOutputArray, pCtx->ScdStatus.uNumSC);
+  Rtos_InvalidateCacheMemory(ScdBuffers.ScdBufOut.tMD.pVirtualAddr, ScdBuffers.ScdBufOut.tMD.uSize);
+  updateStartCodeNumber(pCtx, &ScdBuffers, pMeta, pCtx->ScdStatus.uNumSC);
 
   return pCtx->ScdStatus.uNumSC > 0;
   return false;
@@ -1542,7 +1563,6 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
   uint32_t const StartCodeDataEnd = pMeta->iOffset;
   uint32_t const StreamSize = AL_Buffer_GetSize(pStream);
 
-  AL_Assert(iNalCount < MAX_NAL_UNIT);
   int iNal = -1;
   AL_DecodeNalStep iStep = SEND_NAL_UNTIL_LAST_VCL;
 
@@ -1844,14 +1864,19 @@ static bool CheckDisplayBufferCanBeUsed(AL_TDecCtx* pCtx, AL_TBuffer* pBuf)
   return true;
 }
 
-static int GetNumBuffers(AL_TStreamSettings const* pStreamSettings, int iStackSize)
+static int GetNumBuffers(AL_TDecCtx* pCtx, AL_TStreamSettings const* pStreamSettings, int iStackSize)
 {
   (void)iStackSize;
+  (void)pCtx;
   AL_ECodec eCodec = AL_GET_CODEC(pStreamSettings->eProfile);
   switch(eCodec)
   {
   case AL_CODEC_AVC:
-    return AL_AVC_GetMinOutputBuffersNeeded(pStreamSettings, iStackSize);
+  {
+    int iSPSMaxRef = pCtx->aup.avcAup.pActiveSPS != NULL ? pCtx->aup.avcAup.pActiveSPS->max_num_ref_frames : 0;
+    int iDpbMaxBuf = AL_AVC_GetMaxDpbBuffers(pStreamSettings, iSPSMaxRef);
+    return AVC_GetMinOutputBuffersNeeded(iDpbMaxBuf, pCtx->iStackSize, pStreamSettings->bDecodeIntraOnly);
+  }
   case AL_CODEC_HEVC:
     return AL_HEVC_GetMinOutputBuffersNeeded(pStreamSettings, iStackSize);
   default:
@@ -1899,7 +1924,7 @@ static bool ApplyOutputSettings(AL_TDecCtx* pCtx, AL_TDecOutputSettings const* p
 
   if(bEnableSecondOutput)
   {
-    int iMaxBuf = GetNumBuffers(&pCtx->tCurrentStreamSettings, pCtx->iStackSize);
+    int iMaxBuf = GetNumBuffers(pCtx, &pCtx->tCurrentStreamSettings, pCtx->iStackSize);
 
     if(0 == iMaxBuf)
       return false;
@@ -1916,15 +1941,19 @@ bool AL_Default_Decoder_ConfigureOutputSettings(AL_TDecoder* pAbsDec, AL_TDecOut
 {
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = &pDec->ctx;
-  AL_TDecOutputSettings tDecOutputSettings = *pDecOutputSettings;
+
+  if(NULL == pCtx)
+    return false;
+
+  if(NULL == pDecOutputSettings)
+    return false;
 
   /* For the moment, output parameters can only be set once, but the function returns true
      when its called a second time to avoid causing an error during pre-allocation. */
-  if(pCtx->PictMngr.bOutSettingsConfigured)
+  if(AL_PictMngr_IsInitComplete(&pCtx->PictMngr))
     return true;
 
-  if(!pCtx)
-    return false;
+  AL_TDecOutputSettings tDecOutputSettings = *pDecOutputSettings;
 
   AL_ERR err = CheckOutputSettingsValidity(&pCtx->tCurrentStreamSettings, pDecOutputSettings, pCtx->pChanParam->eCodec);
 
@@ -1939,8 +1968,6 @@ bool AL_Default_Decoder_ConfigureOutputSettings(AL_TDecoder* pAbsDec, AL_TDecOut
 
   if(!pfnConfiguration(pCtx, &tDecOutputSettings, bPostProcEnabled))
     return false;
-
-  pCtx->PictMngr.bOutSettingsConfigured = true;
 
   Rtos_SetEvent(pCtx->hDecOutSettingsConfiguredEvt);
 
@@ -2393,8 +2420,6 @@ static void InitAUP(AL_TDecCtx* pCtx)
 /*****************************************************************************/
 AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB)
 {
-  bool res;
-
   *hDec = NULL;
 
   if(!CheckSettings(pSettings))
@@ -2420,9 +2445,8 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->pInternalFrameBufAllocator = pAllocator;
 
   InitInternalBuffers(pCtx);
-  res = AL_PictMngr_PreInit(&pCtx->PictMngr);
 
-  if(!res)
+  if(!AL_PictMngr_PreInit(&pCtx->PictMngr))
     return AL_ERR_NO_MEMORY;
 
 #define SAFE_ALLOC(pCtx, pMD, uSize, name) \
@@ -2505,7 +2529,10 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->BufNoAE.tMD.pVirtualAddr = Rtos_Malloc(NON_VCL_NAL_SIZE);
 
   if(!pCtx->BufNoAE.tMD.pVirtualAddr)
+  {
+    errorCode = AL_ERR_NO_MEMORY;
     goto cleanup;
+  }
 
   pCtx->BufNoAE.tMD.uSize = NON_VCL_NAL_SIZE;
 
@@ -2521,7 +2548,10 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   AL_Assert(pCtx->eosBuffer);
 
   if(!pCtx->eosBuffer)
+  {
+    errorCode = AL_ERR_NO_MEMORY;
     goto cleanup;
+  }
 
   AL_Buffer_Ref(pCtx->eosBuffer);
 
@@ -2545,7 +2575,10 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   }
 
   if(!pCtx->Feeder)
+  {
+    errorCode = AL_ERR_NO_MEMORY;
     goto cleanup;
+  }
 
   bool useStartCode = true;
 
@@ -2554,7 +2587,9 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->tOutputPosition = pSettings->tOutputPosition;
 
   if(useStartCode)
+  {
     AL_IDecScheduler_CreateStartCodeChannel(&pCtx->hStartCodeChannel, pCtx->pScheduler);
+  }
 
   AL_Default_Decoder_SetError(pCtx, AL_SUCCESS, -1, false);
 

@@ -54,7 +54,7 @@ typedef struct
   AL_TPosition tOutputPosition; /*!< Position of the top left corner of the decoded frames in the Output buffers*/
   bool bUseIFramesAsSyncPoint; /*!< Allow decoder to sync on I frames if configurations' nals are presents */
   uint32_t uNumBuffersHeldByNextComponent; /*!< Number of buffers held by the next component: display / encoder... */
-  bool bUseEarlyCallback; /*< Lowlat phase 2. This only makes sense with special support for hw synchro */
+  bool bUseEarlyCallback; /*!< Lowlat phase 2. This only makes sense with special support for hw synchro */
   AL_EDecInputMode eInputMode; /* Send stream data by decoding unit or feed the library enough data and let it find the units. */
 }AL_TDecSettings;
 

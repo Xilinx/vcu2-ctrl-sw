@@ -3,6 +3,14 @@
 
 #include "lib_log/TimerSoftware.h"
 #include "lib_rtos/lib_rtos.h"
+#include "lib_rtos/types.h"
+
+typedef struct
+{
+  AL_ITimerVtable const* vtable;
+  AL_HANDLE handle;
+  AL_TAllocator* allocator;
+}AL_SoftwareTimer;
 
 static AL_64U getSoftwareTime(AL_ITimer* timer)
 {
@@ -12,19 +20,33 @@ static AL_64U getSoftwareTime(AL_ITimer* timer)
 
 static void deinit(AL_ITimer* timer)
 {
-  (void)timer;
+  if(NULL == timer)
+    return;
+
+  AL_Allocator_Free(((AL_SoftwareTimer*)timer)->allocator, ((AL_SoftwareTimer*)timer)->handle);
 }
 
-static const AL_ITimerVtable SoftwareTimerVtable =
+static AL_ITimerVtable const SoftwareTimerVtable =
 {
-  getSoftwareTime,
-  deinit,
+  &getSoftwareTime,
+  &deinit,
 };
 
-AL_ITimer* AL_SoftwareTimerInit(AL_SoftwareTimer* timer)
+AL_ITimer* AL_SoftwareTimer_Init(char const* name, AL_TAllocator* allocator)
 {
+  if(allocator == NULL)
+    return NULL;
+
+  AL_HANDLE handle = AL_Allocator_AllocNamed(allocator, sizeof(AL_SoftwareTimer), name);
+
+  if(handle == NULL)
+    return NULL;
+
+  AL_SoftwareTimer* timer = (AL_SoftwareTimer*)AL_Allocator_GetVirtualAddr(allocator, handle);
+
   timer->vtable = &SoftwareTimerVtable;
+  timer->handle = handle;
+  timer->allocator = allocator;
+
   return (AL_ITimer*)timer;
 }
-
-AL_SoftwareTimer g_SoftwareTimer;

@@ -239,7 +239,7 @@ vector<ArithInfo<int>> heightInfo {
     isOnlyCodec(Codec::Avc), 96, 4096
   },
   {
-    filterCodecs({ Codec::Hevc, Codec::Vp9, Codec::Av1 }), 128, 4096
+    filterCodecs({ Codec::Hevc, Codec::Vp9, Codec::Av1, Codec::Vvc }), 128, 4096
   },
   {
     isOnlyCodec(Codec::Jpeg), 2, 16384
@@ -251,7 +251,7 @@ vector<ArithInfo<int>> widthInfo {
     isOnlyCodec(Codec::Avc), 80, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
   },
   {
-    isOnlyCodec(Codec::Hevc), 256, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
+    filterCodecs({ Codec::Hevc, Codec::Vvc }), 256, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
   },
   {
     aomCodecs(), 128, AL_ENC_NUM_CORES * AL_ENC_CORE_MAX_WIDTH
@@ -523,6 +523,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
   parser.addSeeAlso(curSection, "CPBSize", { curSection, "RateCtrlMode" });
   parser.addArithOrEnum(curSection, "IPDelta", RCParam.uIPDelta, autoEnum, "IPDelta corresponds to the value we add to the QP of the frame I in order to have the QP of the frame P", {
     { filterCodecs({ Codec::Avc, Codec::Hevc }), 0, 51 },
+    { isOnlyCodec(Codec::Vvc), 0, 63 },
     { filterCodecs({ Codec::Vp9, Codec::Av1 }), 1, 255 },
   });
   parser.addNote(curSection, "IPDelta", "For example, if QP(I Frames) = 14; QP(P Frames) = 17. It means IPDelta = 3 => QP(P Frames) = QP(I Frames) + 3 = 17");
@@ -530,6 +531,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
   parser.addSeeAlso(curSection, "IPDelta", { curSection, "PBDelta" });
   parser.addArithOrEnum(curSection, "PBDelta", RCParam.uPBDelta, autoEnum, "PBDelta corresponds to the value we add to the QP of the frame P in order to have the QP of the frame B", {
     { filterCodecs({ Codec::Avc, Codec::Hevc }), 0, 51 },
+    { isOnlyCodec(Codec::Vvc), 0, 63 },
     { filterCodecs({ Codec::Vp9, Codec::Av1 }), 1, 255 },
   });
   parser.addNote(curSection, "PBDelta", "For example, if QP(B Frames) = 21; QP(P Frames) = 17. It means PBDelta = 4 => QP(B Frames) = QP(P Frames) + 4 = 21");
@@ -1060,8 +1062,8 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
   parser.addFlag(curSection, "SAO", cfg.Settings.tChParam[0].eEncTools, AL_OPT_SAO, "Enable the Sample Adaptive Offset filter", filterCodecs({ Codec::Hevc, Codec::Vvc }));
   map<string, EnumDescription<int>> videoModes;
   videoModes["PROGRESSIVE"] = { AL_VM_PROGRESSIVE, "Progressive video mode", ituCodecs() };
-  videoModes["INTERLACED_TOP"] = { AL_VM_INTERLACED_TOP, "Interlaced video mode: top-bottom", isOnlyCodec(Codec::Hevc) };
-  videoModes["INTERLACED_BOTTOM"] = { AL_VM_INTERLACED_BOTTOM, "Interlaced video mode: bottom-top", isOnlyCodec(Codec::Hevc) };
+  videoModes["INTERLACED_TOP"] = { AL_VM_INTERLACED_TOP, "Interlaced video mode: top-bottom", filterCodecs({ Codec::Hevc, Codec::Vvc }) };
+  videoModes["INTERLACED_BOTTOM"] = { AL_VM_INTERLACED_BOTTOM, "Interlaced video mode: bottom-top", filterCodecs({ Codec::Hevc, Codec::Vvc }) };
   parser.addEnum(curSection, "VideoMode", cfg.Settings.tChParam[0].eVideoMode, videoModes, "When using a profile, this parameter specifies if the video is progressive or interlaced. In interlaced mode, the corresponding flags in header and SEI message will be added.");
   parser.addBool(curSection, "ForcePpsIdToZero", cfg.Settings.tChParam[0].bForcePpsIdToZero, "Every PPS ID is set to 0. Not compatible with reordering. By default, the pps id increases by 1 each time a PPS with different settings must be sent.", ituCodecs());
 
@@ -1272,7 +1274,7 @@ static string readWholeFileInMemory(char const* filename)
   return ss.str();
 }
 
-typedef enum e_SLMode
+typedef enum
 {
   SL_4x4_Y_INTRA,
   SL_4x4_Cb_INTRA,
@@ -1295,7 +1297,7 @@ typedef enum e_SLMode
   SL_32x32_Y_INTRA,
   SL_32x32_Y_INTER,
   SL_DC,
-  SL_ERR
+  SL_ERR,
 }ESLMode;
 
 static string chomp(string sLine)

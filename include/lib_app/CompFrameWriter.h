@@ -4,8 +4,7 @@
 #pragma once
 
 #include "lib_app/CompFrameCommon.h"
-#include "lib_app/SinkBaseWriter.h"
-#include "lib_app/Sink.h"
+#include "lib_app/BaseFrameWriter.h"
 
 extern "C"
 {
@@ -18,12 +17,12 @@ extern "C"
 #include <stdexcept>
 
 /****************************************************************************/
-struct CompFrameWriter final : IFrameSink, BaseFrameSink
+struct CompFrameWriter final : IFrameWriter, BaseFrameWriter
 {
-  CompFrameWriter(std::shared_ptr<std::ostream> recFile, std::shared_ptr<std::ostream> mapFile, AL_EFbStorageMode eStorageMode, uint8_t uCompMode, AL_EOutputType outputID);
+  CompFrameWriter(std::shared_ptr<std::ostream> recFile, std::shared_ptr<std::ostream> mapFile, AL_EFbStorageMode eStorageMode, uint8_t uCompMode);
   ~CompFrameWriter();
 
-  void ProcessFrame(AL_TBuffer* pBuf) override;
+  void WriteFrame(AL_TBuffer* pBuf, AL_TCropInfo* pCrop = nullptr, AL_EPicStruct ePicStruct = AL_PS_FRM) override;
 
 private:
   std::shared_ptr<std::ostream> m_mapFile;

@@ -72,7 +72,7 @@ typedef enum
 *****************************************************************************/
 typedef struct
 {
-  uint8_t uNumCore; /*< number of cores used for encoding */
+  uint8_t uNumCore; /*!< number of cores used for encoding */
 }AL_TEncoderInfo;
 
 /* allegro-doc-start: init */

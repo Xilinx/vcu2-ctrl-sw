@@ -260,7 +260,7 @@ bool AL_JPEG_ParseHeaders(AL_TDecJpegParam* pJP, AL_TRbspParser* pRP, TBuffer* p
 
   ResetQuantTable(pQuant->tMD.pVirtualAddr);
 
-  while(!IsSliceData(eMarker) && more_rbsp_data(pRP))
+  while(!IsSliceData(eMarker) && get_avail_size(pRP) >= 32)
   {
     eMarker = u(pRP, 16);
     int segment_length = u(pRP, 16) - 2;

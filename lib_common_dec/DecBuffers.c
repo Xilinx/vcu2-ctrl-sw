@@ -221,6 +221,7 @@ int AL_GetAllocSize_Frame(AL_TDimension tDim, AL_EChromaMode eChromaMode, uint8_
   tPicFormat.uBitDepth = uBitDepth;
   tPicFormat.eStorageMode = eFbStorageMode;
   tPicFormat.bCompressed = bFbCompression;
+  tPicFormat.eSamplePackMode = GetInternalBufSamplePackMode(eFbStorageMode, uBitDepth);
   int iPitch = RndPitch(tDim.iWidth, &tPicFormat);
   return AL_DecGetAllocSize_Frame(tDim, iPitch, tPicFormat);
 }

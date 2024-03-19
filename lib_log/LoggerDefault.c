@@ -7,16 +7,18 @@
 
 AL_TDefaultLogger g_DefaultLogger;
 
-static void store(AL_TDefaultLogger* l, const char* label, AL_64U timestamp)
+static void store(AL_TDefaultLogger* logger, const char* label, AL_64U timestamp)
 {
-  strcpy(l->events[l->count].label, label);
-  l->events[l->count].timestamp = timestamp;
-  l->count++;
+  int count = logger->count;
+  strcpy(logger->events[count].label, label);
+  logger->events[count].timestamp = timestamp;
+  logger->count++;
 }
 
-static bool hasLooped(AL_TDefaultLogger* l, AL_64U time)
+static bool hasLooped(AL_TDefaultLogger* logger, AL_64U time)
 {
-  return l->count > 0 && l->events[l->count - 1].timestamp > time;
+  int count = logger->count;
+  return (count > 0) && (logger->events[count - 1].timestamp > time);
 }
 
 static void defaultLog(AL_ILogger* logger, char const label[MAX_LOG_LABEL_SIZE])
@@ -49,25 +51,39 @@ static void defaultDeinit(AL_ILogger* logger)
 
 static AL_ILoggerVtable const DefaultLoggerVtable =
 {
-  defaultLog,
-  defaultDeinit,
+  &defaultLog,
+  &defaultDeinit,
 };
 
-AL_ILogger* AL_DefaultLogger_Init(AL_TDefaultLogger* logger, AL_ITimer* timer, LogEvent* buffer, int maxCount)
+AL_ILogger* AL_DefaultLogger_Init(AL_TDefaultLogger* logger, AL_ITimer* timer, LogEvent* events, int maxCount)
 {
+  if(NULL == logger)
+    return NULL;
+
+  if(NULL == timer)
+    return NULL;
+
+  if(maxCount < 0)
+    return NULL;
+
+  if((maxCount > 0) && (NULL == events))
+    return NULL;
+
   logger->mutex = Rtos_CreateMutex();
 
   if(NULL == logger->mutex)
-  {
-    Rtos_Free(logger);
     return NULL;
-  }
 
   logger->vtable = &DefaultLoggerVtable;
   logger->timer = timer;
   logger->count = 0;
-  logger->events = buffer;
+  logger->events = events;
   logger->maxCount = maxCount;
 
   return (AL_ILogger*)logger;
+}
+
+AL_TDefaultLogger* AL_DefaultLogger_Get(void)
+{
+  return &g_DefaultLogger;
 }

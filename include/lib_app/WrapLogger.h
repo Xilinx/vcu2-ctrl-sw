@@ -20,7 +20,7 @@ struct Logger
 
     samples.resize(maxCount);
 
-    logger = AL_DefaultLogger_Init(&g_DefaultLogger, NULL, samples.data(), maxCount);
+    logger = AL_DefaultLogger_Init(AL_DefaultLogger_Get(), NULL, samples.data(), maxCount);
   }
 
   ~Logger()
@@ -36,7 +36,7 @@ struct Logger
 
     std::ofstream tracer(outputFile);
 
-    for(int i = 0; i < g_DefaultLogger.count; i++)
+    for(int i = 0; i < AL_DefaultLogger_Get()->count; i++)
       tracer << std::string(samples[i].label) << " " << samples[i].timestamp << std::endl;
   }
 

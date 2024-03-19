@@ -768,12 +768,6 @@ int AL_Settings_CheckValidity(AL_TEncSettings* pSettings, AL_TEncChanParam* pChP
     }
   }
 
-  if(AL_IS_AV1(pChParam->eProfile) && AL_IS_HWRC_ENABLED(&pChParam->tRCParam))
-  {
-    ++err;
-    MSG_ERROR("Hardware Rate Control (LOW_LATENCY or MaxPictureSize) is not supported in AV1");
-  }
-
   if(pChParam->tRCParam.eRCMode == AL_RC_LOW_LATENCY)
   {
     if(pChParam->tGopParam.uNumB > 0)
