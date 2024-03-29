@@ -706,13 +706,8 @@ struct ConfigParser
   {
     NO_CODEC,
   };
-  bool showAdvancedFeature = true;
 
   void removeIdentifierIf(std::vector<IdentifierValidation> conditions);
-  void setAdvanced(Section section, char const* name)
-  {
-    identifiers[section][tolowerStr(name)].isAdvancedFeature = true;
-  }
 
   void addNote(Section section, char const* name, std::string note)
   {

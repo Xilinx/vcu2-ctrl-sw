@@ -648,8 +648,9 @@ static bool AL_Decoder_SetDecOutputSettings_Riscv(AL_HDecoder hDec, AL_TDecOutpu
   bool res;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_PUT_DISPLAY_PICTURE_REQ;
+  req.hdr.type = MSG_ITF_TYPE_CONFIGURE_OUTPUT_SETTINGS_REQ;
 
+  req.req.hDec = pWrapper->hDec;
   req.req.bCustomFormat = pDecOutputSettings->bCustomFormat;
 
   req.req.tPicFormat = pDecOutputSettings->tPicFormat;

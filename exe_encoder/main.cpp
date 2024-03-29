@@ -290,7 +290,7 @@ void ParseCommandLine(int argc, char** argv, ConfigFile& cfg, CfgParser& cfgPars
     }
     else
       DoNotAcceptCfg = true;
-  }, ShouldShowAdvancedFeatures());
+  });
 
   opt.addFlag("--help,-h", &help, "Show this help");
   opt.addFlag("--help-json", &helpJson, "Show this help (json)");

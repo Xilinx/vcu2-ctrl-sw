@@ -197,7 +197,7 @@ typedef struct AL_TSrcInfo
 {
   uint32_t uPitch;
   uint8_t uBitDepth;
-  uint8_t uFormat;
+  bool bIsTiled;
   uint8_t uTileWidth;
   bool bRasterMSB;
 }AL_TSrcInfo;

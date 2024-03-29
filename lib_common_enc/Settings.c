@@ -550,6 +550,7 @@ void AL_Settings_SetDefaults(AL_TEncSettings* pSettings)
 #if (defined(ANDROID) || defined(__ANDROID_API__))
   pChan->eStartCodeBytesAligned = AL_START_CODE_4_BYTES;
 #endif
+
 }
 
 /***************************************************************************/

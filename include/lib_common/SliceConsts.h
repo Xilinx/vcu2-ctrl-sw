@@ -11,7 +11,7 @@
 #include "Profiles.h"
 
 #define AL_MAX_NUM_REF 16
-#define AL_MAX_NUM_B_PICT 15
+#define AL_MAX_NUM_B_PICT 30
 
 /*************************************************************************//*!
    \brief Maximum number of frame type i.e. (I, P, B)

@@ -629,7 +629,7 @@ bool AL_Common_Encoder_Process(AL_TEncCtx* pCtx, AL_TBuffer* pFrame, AL_TBuffer*
   }
 
   addresses.tSrcInfo.uBitDepth = tPicFormat.uBitDepth;
-  addresses.tSrcInfo.uFormat = tPicFormat.eStorageMode != AL_FB_RASTER;
+  addresses.tSrcInfo.bIsTiled = tPicFormat.eStorageMode != AL_FB_RASTER;
   addresses.tSrcInfo.uTileWidth = GetTileWidth(tPicFormat.eStorageMode, tPicFormat.uBitDepth);
 
   AL_Buffer_Ref(pFrame);

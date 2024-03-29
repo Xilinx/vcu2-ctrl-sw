@@ -7,6 +7,8 @@
 #include "lib_common/Utils.h"
 #include "Reordering.h"
 
+#define AL_MAX_NUM_FOLLOW_REF 8
+
 /*************************************************************************//*!
    \brief Reference Picture information
 *****************************************************************************/
@@ -24,7 +26,7 @@ typedef struct
   AL_TRefParam RefA; /*!< Specifies the picture reference mode used for reference A */
   AL_TRefParam RefB; /*!< Specifies the picture reference mode used for reference B */
   AL_TRefParam RefColoc; /*!< Specifies the picture reference mode used for the colocated reference */
-  AL_TRefParam RefF[3]; /*!< Specifies the picture reference mode used for the eventual following picture */
+  AL_TRefParam RefF[AL_MAX_NUM_FOLLOW_REF]; /*!< Specifies the picture reference mode used for the eventual following picture */
 
   uint8_t uNumRefIdxL0;
   uint8_t uNumRefIdxL1;

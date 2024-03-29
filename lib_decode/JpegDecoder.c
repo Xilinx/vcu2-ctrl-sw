@@ -220,6 +220,10 @@ bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
   AL_TCropInfo const tCropInfo = { false, 0, 0, 0, 0 }; // XXX
   AL_ERR error = pCtx->tDecCB.resolutionFoundCB.func(pCtx->pChanParam->uNumCore * AL_DEC_NUM_JPEG_PER_CORE, &tCurStreamSettings, &tCropInfo, pCtx->tDecCB.resolutionFoundCB.userParam);
 
+  // In the case of mjpeg, it needs to wait only the first time
+  if(!AL_PictMngr_IsInitComplete(&pCtx->PictMngr))
+    Rtos_WaitEvent(pCtx->hDecOutSettingsConfiguredEvt, AL_WAIT_FOREVER);
+
   tJpegParam.tOutPicFormat = pCtx->pChanParam->tOutputSettings.tPicFormat;
 
   if(AL_IS_ERROR_CODE(error))

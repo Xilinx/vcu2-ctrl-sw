@@ -25,14 +25,12 @@ static void AL_sUpdateProfileTierLevel(AL_THevcProfilevel* pPTL, AL_TEncChanPara
       pPTL->general_progressive_source_flag = 1;
       pPTL->general_frame_only_constraint_flag = 1;
     }
-#if AL_ENABLE_SW_HEVC_INTERLACED
     else
     {
       pPTL->general_progressive_source_flag = 0;
       pPTL->general_interlaced_source_flag = 1;
       pPTL->general_frame_only_constraint_flag = 0;
     }
-#endif
 
     if(pPTL->general_profile_idc == AL_GET_PROFILE_IDC(AL_PROFILE_HEVC_RExt))
     {
@@ -163,7 +161,7 @@ void AL_HEVC_GenerateVPS(AL_TVps* pIVPS, AL_TEncSettings const* pSettings, int i
   int vps_max_layers_minus1 = 0;
   pVPS->vps_max_layers_minus1 = vps_max_layers_minus1;
   AL_TGopParam const* const pGopParam = &pSettings->tChParam[0].tGopParam;
-  int const iNumTemporalLayer = DeduceNumTemporalLayer(pGopParam);
+  int const iNumTemporalLayer = DeduceNumTemporalLayer(pGopParam, AL_CODEC_HEVC, pSettings->tChParam[0].eVideoMode);
   pVPS->vps_max_sub_layers_minus1 = iNumTemporalLayer - 1;
   pVPS->vps_temporal_id_nesting_flag = 1;
 
@@ -215,7 +213,7 @@ static void AL_HEVC_UpdateHrdParameters(AL_THevcSps* pSPS, AL_TSubHrdParam* pSub
 
   AL_TGopParam const* const pGopParam = &pSettings->tChParam[0].tGopParam;
 
-  for(int i = 0; i < DeduceNumTemporalLayer(pGopParam); ++i)
+  for(int i = 0; i < DeduceNumTemporalLayer(pGopParam, AL_CODEC_HEVC, pSettings->tChParam[0].eVideoMode); ++i)
   {
     pSPS->vui_param.hrd_param.fixed_pic_rate_general_flag[i] = 0;
     pSPS->vui_param.hrd_param.fixed_pic_rate_within_cvs_flag[i] = 0;
@@ -298,7 +296,7 @@ void AL_HEVC_GenerateSPS(AL_TSps* pISPS, AL_TEncSettings const* pSettings, AL_TE
   AL_EChromaMode eChromaMode = AL_GET_CHROMA_MODE(pChParam->ePicFormat);
   pSPS->sps_video_parameter_set_id = 0;
   AL_TGopParam const* const pGopParam = &pSettings->tChParam[0].tGopParam;
-  int const iNumTemporalLayer = DeduceNumTemporalLayer(pGopParam);
+  int const iNumTemporalLayer = DeduceNumTemporalLayer(pGopParam, AL_CODEC_HEVC, pSettings->tChParam[0].eVideoMode);
 
   if(iLayerId == 0)
     pSPS->sps_max_sub_layers_minus1 = iNumTemporalLayer - 1;
@@ -378,13 +376,11 @@ void AL_HEVC_GenerateSPS(AL_TSps* pISPS, AL_TEncSettings const* pSettings, AL_TE
     pSPS->vui_param.field_seq_flag = 0;
     pSPS->vui_param.frame_field_info_present_flag = 0;
   }
-#if AL_ENABLE_SW_HEVC_INTERLACED
   else
   {
     pSPS->vui_param.field_seq_flag = 1;
     pSPS->vui_param.frame_field_info_present_flag = 1;
   }
-#endif
   pSPS->vui_param.default_display_window_flag = 0;
 
   AL_UpdateAspectRatio(&pSPS->vui_param, pChParam->uEncWidth, pChParam->uEncHeight, pSettings->eAspectRatio);

@@ -48,7 +48,7 @@
 #define NUM_COMMAND_REGISTER 1024
 #endif
 #ifndef ENCODER_DEVICES
-#define ENCODER_DEVICES { "/dev/al_e2xx" }
+#define ENCODER_DEVICES { "/dev/allegroIP" }
 #endif
 #ifndef ENCODER_CORE_FREQUENCY
 #define ENCODER_CORE_FREQUENCY (950 * 1000 * 1000)
@@ -57,7 +57,7 @@
 #define ENCODER_CORE_FREQUENCY_MARGIN 6
 #endif
 #ifndef ENCODER_CYCLES_FOR_BLK_32X32
-#define ENCODER_CYCLES_FOR_BLK_32X32 { 2148, 2116, 2425, 3510 }
+#define ENCODER_CYCLES_FOR_BLK_32X32 { 2148, 2116, 2425, 3419 }
 #endif
 #ifndef DECODER_CORE_FREQUENCY
 #define DECODER_CORE_FREQUENCY (920 * 1000 * 1000)
@@ -69,7 +69,7 @@
 #define DECODER_CYCLES_FOR_BLK_32X32 { 940, 940, 1156, 1696 }
 #endif
 #ifndef DECODER_DEVICES
-#define DECODER_DEVICES { "/dev/al_d3xx" }
+#define DECODER_DEVICES { "/dev/allegroDecodeIP" }
 #endif
 #ifndef AL_ENC_NUM_CORES
 #define AL_ENC_NUM_CORES 2
@@ -132,5 +132,5 @@
 
 #define AL_CONFIGURE_COMMANDLINE "./configure --config-blob customers/XilinxV2/config.ini"
 #define AL_VERSION_MAJOR 0
-#define AL_VERSION_MINOR 42
+#define AL_VERSION_MINOR 43
 #define AL_VERSION_PATCH 0

@@ -155,9 +155,9 @@ struct CfgParser final
 {
   void ParseConfigFile(std::string const& sCfgFileName, ConfigFile& cfg, std::ostream& warnStream = std::cerr, bool debug = false);
   void ParseConfig(std::string const& toParse, ConfigFile& cfg, std::ostream& warnStream = std::cerr, bool debug = false);
-  void PrintConfigFileUsage(ConfigFile cfg = {}, bool showAdvancedFeature = true);
-  void PrintConfigFileUsageJson(ConfigFile cfg = {}, bool showAdvancedFeature = true);
-  void PrintConfig(ConfigFile cfg, bool showAdvancedFeature = true);
+  void PrintConfigFileUsage(ConfigFile cfg = {});
+  void PrintConfigFileUsageJson(ConfigFile cfg = {});
+  void PrintConfig(ConfigFile cfg);
   void PostParsingConfiguration(ConfigFile& cfg, std::ostream& warnStream = std::cerr);
 
 private:

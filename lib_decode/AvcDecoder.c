@@ -292,6 +292,7 @@ static bool allocateBuffers(AL_TDecCtx* pCtx, AL_TAvcSps const* pSPS, bool bHasF
     goto fail_alloc;
 
   Rtos_WaitEvent(pCtx->hDecOutSettingsConfiguredEvt, AL_WAIT_FOREVER);
+
   return true;
 
   fail_alloc:

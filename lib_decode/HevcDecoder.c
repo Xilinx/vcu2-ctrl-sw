@@ -117,9 +117,7 @@ static AL_ESequenceMode GetSequenceModeFromScanType(uint8_t source_scan_type)
 {
   switch(source_scan_type)
   {
-#if AL_ENABLE_SW_HEVC_INTERLACED
   case 0: return AL_SM_INTERLACED;
-#endif
   case 1: return AL_SM_PROGRESSIVE;
 
   case 2:
@@ -133,7 +131,6 @@ static AL_ESequenceMode GetSequenceModeFromScanType(uint8_t source_scan_type)
 static AL_ESequenceMode getSequenceMode(AL_THevcSps const* pSPS)
 {
   AL_THevcProfilevel const* pProfileLevel = &pSPS->profile_and_level;
-#if AL_ENABLE_SW_HEVC_INTERLACED
 
   if(pSPS->vui_parameters_present_flag)
   {
@@ -142,7 +139,6 @@ static AL_ESequenceMode getSequenceMode(AL_THevcSps const* pSPS)
     if(pVUI->field_seq_flag)
       return AL_SM_INTERLACED;
   }
-#endif
 
   if(pSPS->profile_and_level.general_frame_only_constraint_flag)
     return AL_SM_PROGRESSIVE;
@@ -152,11 +148,9 @@ static AL_ESequenceMode getSequenceMode(AL_THevcSps const* pSPS)
 
   if(pProfileLevel->general_progressive_source_flag && (pProfileLevel->general_interlaced_source_flag == 0))
     return AL_SM_PROGRESSIVE;
-#if AL_ENABLE_SW_HEVC_INTERLACED
 
   if((pProfileLevel->general_progressive_source_flag == 0) && pProfileLevel->general_interlaced_source_flag)
     return AL_SM_INTERLACED;
-#endif
 
   if(pProfileLevel->general_progressive_source_flag && pProfileLevel->general_interlaced_source_flag)
     return GetSequenceModeFromScanType(pSPS->sei_source_scan_type);
@@ -378,6 +372,7 @@ static bool allocateBuffers(AL_TDecCtx* pCtx, AL_THevcSps const* pSPS)
     goto fail_alloc;
 
   Rtos_WaitEvent(pCtx->hDecOutSettingsConfiguredEvt, AL_WAIT_FOREVER);
+
   return true;
 
   fail_alloc:

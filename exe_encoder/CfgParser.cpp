@@ -1682,10 +1682,9 @@ static bool isDynamicSection(Section const& sectionName)
   return notSupported;
 }
 
-void CfgParser::PrintConfigFileUsage(ConfigFile cfg, bool showAdvancedFeature)
+void CfgParser::PrintConfigFileUsage(ConfigFile cfg)
 {
   ConfigParser parser {};
-  parser.showAdvancedFeature = showAdvancedFeature;
   populateIdentifiers(parser, cfg, temporaries, cerr);
 
   for(auto& section_ : parser.identifiers)
@@ -1695,9 +1694,6 @@ void CfgParser::PrintConfigFileUsage(ConfigFile cfg, bool showAdvancedFeature)
 
     for(auto identifier_ : section_.second)
     {
-      if(identifier_.second.isAdvancedFeature && !parser.showAdvancedFeature)
-        continue;
-
       auto identifier = identifier_.second.showName;
       auto desc = identifier_.second.description;
 
@@ -1767,12 +1763,10 @@ void CfgParser::PrintConfigFileUsage(ConfigFile cfg, bool showAdvancedFeature)
   }
 }
 
-void CfgParser::PrintConfigFileUsageJson(ConfigFile cfg, bool showAdvancedFeature)
+void CfgParser::PrintConfigFileUsageJson(ConfigFile cfg)
 {
   ConfigParser parser {};
   auto jsonWriter(CJsonWriter("/dev/stdout", true));
-
-  parser.showAdvancedFeature = showAdvancedFeature;
   populateIdentifiers(parser, cfg, temporaries, cerr);
 
   for(auto& section_ : parser.identifiers)
@@ -1782,9 +1776,6 @@ void CfgParser::PrintConfigFileUsageJson(ConfigFile cfg, bool showAdvancedFeatur
 
     for(auto identifier_ : section_.second)
     {
-      if(identifier_.second.isAdvancedFeature && !parser.showAdvancedFeature)
-        continue;
-
       jsonObject.AddValue("section", toString(sectionName));
 
       auto identifier = identifier_.second.showName;
@@ -1865,14 +1856,12 @@ void CfgParser::PrintConfigFileUsageJson(ConfigFile cfg, bool showAdvancedFeatur
   }
 }
 
-void PrintSection(Section sectionName, map<string, Callback> const& identifiers, bool showAdvancedFeature)
+void PrintSection(Section sectionName, map<string, Callback> const& identifiers)
 {
   printSectionName(sectionName);
 
   for(auto identifier_ : identifiers)
   {
-    if(identifier_.second.isAdvancedFeature && !showAdvancedFeature)
-      continue;
     auto identifier = identifier_.second.showName;
     auto value = identifier_.second.defaultValue();
     auto desc = identifier_.second.description;
@@ -1888,10 +1877,9 @@ void PrintSection(Section sectionName, map<string, Callback> const& identifiers,
   cout << endl;
 }
 
-void CfgParser::PrintConfig(ConfigFile cfg, bool showAdvancedFeature)
+void CfgParser::PrintConfig(ConfigFile cfg)
 {
   ConfigParser parser {};
-  parser.showAdvancedFeature = showAdvancedFeature;
   populateIdentifiers(parser, cfg, temporaries, cerr);
 
   for(auto& section_ : parser.identifiers)
@@ -1900,13 +1888,13 @@ void CfgParser::PrintConfig(ConfigFile cfg, bool showAdvancedFeature)
     auto& identifiers = section_.second;
 
     if(!isDynamicSection(sectionName))
-      PrintSection(sectionName, identifiers, parser.showAdvancedFeature);
+      PrintSection(sectionName, identifiers);
     else if(sectionName == Section::DynamicInput)
     {
       for(auto& input : cfg.DynamicInputs)
       {
         temporaries.TempInput = input;
-        PrintSection(sectionName, identifiers, parser.showAdvancedFeature);
+        PrintSection(sectionName, identifiers);
       }
     }
   }

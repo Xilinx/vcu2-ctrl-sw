@@ -289,7 +289,8 @@ static void ProcessOutputArgs(Config& config, const string& sRasterOut)
   if(pOutputSettings->bCustomFormat)
   {
     pOutputSettings->bCustomFormat = (pOutputSettings->tPicFormat.eStorageMode != config.tDecSettings.eFBStorageMode) ||
-                                     (pOutputSettings->tPicFormat.bCompressed != config.tDecSettings.bFrameBufferCompression);
+                                     (pOutputSettings->tPicFormat.bCompressed != config.tDecSettings.bFrameBufferCompression) ||
+                                     pOutputSettings->tPicFormat.bMSB;
   }
 
   if(pOutputSettings->bCustomFormat && !IsSecondOutputFormatAllowed(pOutputSettings->tPicFormat.eStorageMode))
@@ -416,7 +417,7 @@ Config ParseCommandLine(int argc, char* argv[])
 
   SetDefaultDecOutputSettings(&config.tUserOutputSettings);
 
-  auto opt = CommandLineParser(ShouldShowAdvancedFeatures());
+  auto opt = CommandLineParser();
 
   opt.addFlag("--help,-h", &config.help, "Shows this help");
   opt.addFlag("--help-json", &helpJson, "Show this help (json)");
@@ -473,6 +474,8 @@ Config ParseCommandLine(int argc, char* argv[])
     if(config.tUserOutputSettings.tPicFormat.eStorageMode == AL_FB_TILE_64x4 || config.tUserOutputSettings.tPicFormat.eStorageMode == AL_FB_TILE_32x4)
       config.tUserOutputSettings.tPicFormat.eSamplePackMode = AL_SAMPLE_PACK_MODE_PACKED;
 
+    if(sWordToParse == "raster-msb")
+      config.tUserOutputSettings.tPicFormat.bMSB = true;
   }, "Specify the format of the decoded frame buffers returned to the user (" + GetFrameBufferFormatOptDesc(true) + "). Default value aligned on --fbuf-format.");
 
   opt.addFlag("--split-input", &config.tDecSettings.eInputMode,
