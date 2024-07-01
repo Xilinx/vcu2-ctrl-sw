@@ -11,13 +11,15 @@
 #include "LibDecoderRiscvInternal.h"
 #include "lib_decode/LibDecoderRiscv.h"
 #include "lib_common/BufferAPIInternal.h"
+#include "lib_common/PicFormat.h"
 #include "lib_common_dec/DecBuffersInternal.h"
 #include "lib_common/RiscvDmaAllocator.h"
 #include "lib_common/BufferStreamMeta.h"
+#include "lib_common/DisplayInfoMeta.h"
 #include "lib_common_dec/HDRMeta.h"
 #include "lib_common/Utils.h"
 
-#include "lib_decode/msg_itf_generated.h"
+#include "lib_decode/msg_interface_generated.h"
 #include "lib_common/codec_uapi.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -120,7 +122,7 @@ static AL_TMetaData* RiscvMeta_Clone(AL_TMetaData* pMeta)
   return &copy->tMeta;
 }
 
-static AL_TRiscvMetaData* AL_RiscvMetaData_Create()
+static AL_TRiscvMetaData* AL_RiscvMetaData_Create(void)
 {
   AL_TRiscvMetaData* pMeta = (AL_TRiscvMetaData*)Rtos_Malloc(sizeof(*pMeta));
 
@@ -139,45 +141,45 @@ static int getMaxEventSize(void)
 {
   int max = 0;
 
-  max = MAX(max, msg_itf_evt_bitstream_buffer_refcount_get_size());
-  max = MAX(max, msg_itf_evt_display_picture_refcount_get_size());
-  max = MAX(max, msg_itf_evt_resolution_found_get_size());
-  max = MAX(max, msg_itf_evt_end_parsing_get_size());
-  max = MAX(max, msg_itf_evt_end_decoding_get_size());
-  max = MAX(max, msg_itf_evt_display_get_size());
-  max = MAX(max, msg_itf_evt_sei_buf_get_size());
-  max = MAX(max, msg_itf_evt_sei_msg_get_size());
-  max = MAX(max, msg_itf_evt_error_get_size());
-  max = MAX(max, msg_itf_evt_display_with_hdr_get_size());
-  max = MAX(max, msg_itf_evt_destroy_marker_get_size());
+  max = MAX(max, msg_interface_evt_bitstream_buffer_refcount_get_size());
+  max = MAX(max, msg_interface_evt_display_picture_refcount_get_size());
+  max = MAX(max, msg_interface_evt_resolution_found_get_size());
+  max = MAX(max, msg_interface_evt_end_parsing_get_size());
+  max = MAX(max, msg_interface_evt_end_decoding_get_size());
+  max = MAX(max, msg_interface_evt_display_get_size());
+  max = MAX(max, msg_interface_evt_sei_buf_get_size());
+  max = MAX(max, msg_interface_evt_sei_msg_get_size());
+  max = MAX(max, msg_interface_evt_error_get_size());
+  max = MAX(max, msg_interface_evt_display_with_hdr_get_size());
+  max = MAX(max, msg_interface_evt_destroy_marker_get_size());
 
   return max;
 }
 
 static void handleEvtBitstreamBufferRefcount(void* buffer)
 {
-  struct msg_itf_evt_bitstream_buffer_refcount event;
+  struct msg_interface_evt_bitstream_buffer_refcount event;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_bitstream_buffer_refcount);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_bitstream_buffer_refcount);
 
   AL_Buffer_Unref((AL_TBuffer*)(intptr_t)event.pBuf);
 }
 
 static void handleEvtDisplayPictureBufferRefcount(void* buffer)
 {
-  struct msg_itf_evt_display_picture_refcount event;
+  struct msg_interface_evt_display_picture_refcount event;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_display_picture_refcount);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_display_picture_refcount);
 
   AL_Buffer_Unref((AL_TBuffer*)(intptr_t)event.pDisplay);
 }
 
 static void handleEvtResolutionFound(void* buffer)
 {
-  struct msg_itf_evt_resolution_found event;
+  struct msg_interface_evt_resolution_found event;
   AL_HDecoderWrapper* pWrapper;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_resolution_found);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_resolution_found);
 
   pWrapper = (void*)(intptr_t)event.hWrapper;
   pWrapper->CB.resolutionFoundCB.func(event.BufferNumber, &event.settings, &event.cropInfo,
@@ -186,11 +188,11 @@ static void handleEvtResolutionFound(void* buffer)
 
 static void handleEvtEndParsing(void* buffer)
 {
-  struct msg_itf_evt_end_parsing event;
+  struct msg_interface_evt_end_parsing event;
   AL_HDecoderWrapper* pWrapper;
   AL_TBuffer* pParsedFrame;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_end_parsing);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_end_parsing);
 
   pWrapper = (void*)(intptr_t)event.hWrapper;
   pParsedFrame = (AL_TBuffer*)(intptr_t)event.pParsedFrame;
@@ -203,11 +205,11 @@ static void handleEvtEndParsing(void* buffer)
 
 static void handleEvtEndDecoding(void* buffer)
 {
-  struct msg_itf_evt_end_decoding event;
+  struct msg_interface_evt_end_decoding event;
   AL_HDecoderWrapper* pWrapper;
   AL_TBuffer* pDecodedFrame;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_end_decoding);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_end_decoding);
 
   pWrapper = (void*)(intptr_t)event.hWrapper;
   pDecodedFrame = (AL_TBuffer*)(intptr_t)event.pDecodedFrame;
@@ -215,12 +217,13 @@ static void handleEvtEndDecoding(void* buffer)
   pWrapper->CB.endDecodingCB.func(pDecodedFrame, pWrapper->CB.endDecodingCB.userParam);
 }
 
-static void handleEvtDisplay(struct msg_itf_evt_display* evt)
+static void handleEvtDisplay(struct msg_interface_evt_display* evt)
 {
   AL_TRiscvMetaData* pRiscvMeta;
   AL_HDecoderWrapper* pWrapper;
   AL_TBuffer* pDisplayedFrame;
   AL_TPixMapMetaData* pMeta;
+  AL_TDisplayInfoMetaData* pDispMeta;
 
   pWrapper = (void*)(intptr_t)evt->hWrapper;
   pDisplayedFrame = (AL_TBuffer*)(intptr_t)evt->pDisplayedFrame;
@@ -235,6 +238,18 @@ static void handleEvtDisplay(struct msg_itf_evt_display* evt)
     pRiscvMeta = (AL_TRiscvMetaData*)AL_Buffer_GetMetaData(pDisplayedFrame, AL_META_TYPE_RISCV);
     assert(pRiscvMeta);
     pRiscvMeta->decodedError = evt->decodedError;
+
+    pDispMeta = (AL_TDisplayInfoMetaData*)AL_Buffer_GetMetaData(pDisplayedFrame, AL_META_TYPE_DISPLAY_INFO);
+
+    if(pDispMeta)
+    {
+      pDispMeta->eOutputID = evt->info.eOutputID;
+      pDispMeta->ePicStruct = evt->info.ePicStruct;
+      pDispMeta->tPos = evt->info.tPos;
+      pDispMeta->uStreamBitDepthC = evt->info.uBitDepthC;
+      pDispMeta->uStreamBitDepthY = evt->info.uBitDepthY;
+      pDispMeta->tCrop = evt->info.tCrop;
+    }
   }
 
   pWrapper->CB.displayCB.func(pDisplayedFrame, evt->pInfo ? &evt->info : NULL,
@@ -243,20 +258,20 @@ static void handleEvtDisplay(struct msg_itf_evt_display* evt)
 
 static void handleEvtDisplayWithoutHdr(void* buffer)
 {
-  struct msg_itf_evt_display event;
+  struct msg_interface_evt_display event;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_display);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_display);
 
   handleEvtDisplay(&event);
 }
 
 static void handleEvtDisplayWithHdr(void* buffer)
 {
-  struct msg_itf_evt_display_with_hdr event;
+  struct msg_interface_evt_display_with_hdr event;
   AL_TBuffer* pDisplayedFrame;
   AL_THDRMetaData* pMetaHdr;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_display_with_hdr);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_display_with_hdr);
   pDisplayedFrame = (AL_TBuffer*)(intptr_t)event.evt_display.pDisplayedFrame;
 
   pMetaHdr = pDisplayedFrame ? (AL_THDRMetaData*)AL_Buffer_GetMetaData(pDisplayedFrame, AL_META_TYPE_HDR) : NULL;
@@ -274,12 +289,12 @@ static void handleEvtDisplayWithHdr(void* buffer)
 
 static void handleEvtSeiBuf(void* buffer)
 {
-  struct msg_itf_evt_sei_buf event;
+  struct msg_interface_evt_sei_buf event;
   AL_HDecoderWrapper* pWrapper;
   void* pSeiBuffer = NULL;
   int32_t iPayloadSize;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_sei_buf);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_sei_buf);
   pWrapper = (void*)(intptr_t)event.hWrapper;
   pSeiBuffer = AL_RiscvCmaMap(pWrapper->pCtx->fd, event.iPayloadSize, event.uOffsetSei);
   iPayloadSize = pSeiBuffer ? event.iPayloadSize : 0;
@@ -295,10 +310,10 @@ static void handleEvtSeiBuf(void* buffer)
 
 static void handleEvtSeiMsg(void* buffer)
 {
-  struct msg_itf_evt_sei_msg event;
+  struct msg_interface_evt_sei_msg event;
   AL_HDecoderWrapper* pWrapper;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_sei_msg);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_sei_msg);
 
   pWrapper = (void*)(intptr_t)event.hWrapper;
   pWrapper->CB.parsedSeiCB.func(event.bIsPrefix, event.iPayloadType, event.payload,
@@ -307,10 +322,10 @@ static void handleEvtSeiMsg(void* buffer)
 
 static void handleErrorMsg(void* buffer)
 {
-  struct msg_itf_evt_error event;
+  struct msg_interface_evt_error event;
   AL_HDecoderWrapper* pWrapper;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_error);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_error);
 
   pWrapper = (void*)(intptr_t)event.hWrapper;
   pWrapper->CB.errorCB.func(event.uError, pWrapper->CB.errorCB.userParam);
@@ -318,10 +333,10 @@ static void handleErrorMsg(void* buffer)
 
 static void handleEvtDestroyMarker(void* buffer)
 {
-  struct msg_itf_evt_destroy_marker event;
+  struct msg_interface_evt_destroy_marker event;
   AL_HDecoderWrapper* pWrapper;
 
-  EVENT_UNMARSHALL(event, buffer, msg_itf_evt_destroy_marker);
+  EVENT_UNMARSHALL(event, buffer, msg_interface_evt_destroy_marker);
   pWrapper = (void*)(intptr_t)event.hWrapper;
   Rtos_SetEvent(pWrapper->destroyEvent);
 }
@@ -350,37 +365,37 @@ static void* pollerThread(void* arg)
       break;
     switch(event.type)
     {
-    case MSG_ITF_TYPE_EVT_BITSTREAM_BUFFER_REFCOUNT:
+    case MSG_INTERFACE_TYPE_EVT_BITSTREAM_BUFFER_REFCOUNT:
       handleEvtBitstreamBufferRefcount(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_DISPLAY_PICTURE_REFCOUNT:
+    case MSG_INTERFACE_TYPE_EVT_DISPLAY_PICTURE_REFCOUNT:
       handleEvtDisplayPictureBufferRefcount(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_RESOLUTION_FOUND:
+    case MSG_INTERFACE_TYPE_EVT_RESOLUTION_FOUND:
       handleEvtResolutionFound(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_END_PARSING:
+    case MSG_INTERFACE_TYPE_EVT_END_PARSING:
       handleEvtEndParsing(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_END_DECODING:
+    case MSG_INTERFACE_TYPE_EVT_END_DECODING:
       handleEvtEndDecoding(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_DISPLAY:
+    case MSG_INTERFACE_TYPE_EVT_DISPLAY:
       handleEvtDisplayWithoutHdr(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_DISPLAY_WITH_HDR:
+    case MSG_INTERFACE_TYPE_EVT_DISPLAY_WITH_HDR:
       handleEvtDisplayWithHdr(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_SEI_BUF:
+    case MSG_INTERFACE_TYPE_EVT_SEI_BUF:
       handleEvtSeiBuf(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_SEI_MSG:
+    case MSG_INTERFACE_TYPE_EVT_SEI_MSG:
       handleEvtSeiMsg(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_ERROR:
+    case MSG_INTERFACE_TYPE_EVT_ERROR:
       handleErrorMsg(event.event);
       break;
-    case MSG_ITF_TYPE_EVT_DESTROY_MARKER:
+    case MSG_INTERFACE_TYPE_EVT_DESTROY_MARKER:
       handleEvtDestroyMarker(event.event);
       break;
     default:
@@ -406,8 +421,8 @@ static AL_ERR AL_Decoder_Create_Riscv(AL_HDecoder* hDec, void* pScheduler, AL_TA
 /*****************************************************************************/
 static AL_ERR AL_Decoder_CreateWithCtx_Riscv(AL_HDecoder* hDec, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator, void* pSet, void* pCallBacks)
 {
-  struct msg_itf_create_decoder_req_full req;
-  struct msg_itf_create_decoder_reply reply;
+  struct msg_interface_create_decoder_req_full req;
+  struct msg_interface_create_decoder_reply reply;
   struct codec_cmd_reply cmd_reply;
   AL_RiscvDecoderCtx* pCtx = ctx;
   AL_HDecoderWrapper* pWrapper;
@@ -431,13 +446,13 @@ static AL_ERR AL_Decoder_CreateWithCtx_Riscv(AL_HDecoder* hDec, AL_RiscV_Ctx ctx
     return AL_ERR_NO_MEMORY;
   }
 
-  req.hdr.type = MSG_ITF_TYPE_CREATE_DECODER_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_CREATE_DECODER_REQ;
   req.req.hWrapper = (intptr_t)pWrapper;
   req.req.settings = *pSettings;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_create_decoder);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_create_decoder);
   ret = ioctl(pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_create_decoder);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_create_decoder);
 
   if(ret || AL_IS_ERROR_CODE(reply.ret))
     goto error;
@@ -459,14 +474,14 @@ static AL_ERR AL_Decoder_CreateWithCtx_Riscv(AL_HDecoder* hDec, AL_RiscV_Ctx ctx
 /*****************************************************************************/
 static void AL_Decoder_Destroy_Riscv(AL_HDecoder hDec)
 {
-  struct msg_itf_destroy_decoder_req_full req;
+  struct msg_interface_destroy_decoder_req_full req;
   AL_HDecoderWrapper* pWrapper = hDec;
   struct codec_cmd_reply cmd_reply;
 
-  req.hdr.type = MSG_ITF_TYPE_DESTROY_DECODER_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_DESTROY_DECODER_REQ;
   req.req.hDec = pWrapper->hDec;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_destroy_decoder);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_destroy_decoder);
   ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
   Rtos_WaitEvent(pWrapper->destroyEvent, AL_WAIT_FOREVER);
   Rtos_DeleteEvent(pWrapper->destroyEvent);
@@ -476,7 +491,7 @@ static void AL_Decoder_Destroy_Riscv(AL_HDecoder hDec)
 /*****************************************************************************/
 static void AL_Decoder_SetParam_Riscv(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bForceCleanBuffers, bool bShouldPrintFrameDelimiter)
 {
-  struct msg_itf_setparam_req_full req;
+  struct msg_interface_setparam_req_full req;
   AL_HDecoderWrapper* pWrapper = hDec;
   struct codec_cmd_reply cmd_reply;
 
@@ -485,11 +500,11 @@ static void AL_Decoder_SetParam_Riscv(AL_HDecoder hDec, const char* sPrefix, int
   (void)iNumFrm;
   (void)bShouldPrintFrameDelimiter;
 
-  req.hdr.type = MSG_ITF_TYPE_SETPARAM_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_SETPARAM_REQ;
   req.req.hDec = pWrapper->hDec;
   req.req.bForceCleanBuffers = bForceCleanBuffers;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_setparam);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_setparam);
   ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
 }
 
@@ -506,14 +521,14 @@ static void AL_Decoder_SetInternalFrameBuffersAllocator_Riscv(AL_HDecoder hDec, 
 /*****************************************************************************/
 static bool AL_Decoder_PushStreamBuffer_Riscv(AL_HDecoder hDec, AL_TBuffer* pBuf, size_t uSize, uint8_t uFlags)
 {
-  struct msg_itf_push_bitstream_buffer_req_full req;
-  struct msg_itf_push_bitstream_buffer_reply reply;
+  struct msg_interface_push_bitstream_buffer_req_full req;
+  struct msg_interface_push_bitstream_buffer_reply reply;
   AL_HDecoderWrapper* pWrapper = hDec;
   struct codec_cmd_reply cmd_reply;
   bool res;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_PUSH_BITSTREAM_BUFFER_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_PUSH_BITSTREAM_BUFFER_REQ;
   req.req.hDec = pWrapper->hDec;
   req.req.pBuf = (intptr_t)pBuf;
   req.req.pAddr = AL_Buffer_GetPhysicalAddress(pBuf);
@@ -522,9 +537,9 @@ static bool AL_Decoder_PushStreamBuffer_Riscv(AL_HDecoder hDec, AL_TBuffer* pBuf
   req.req.uFlags = uFlags;
 
   AL_Buffer_Ref(pBuf);
-  CMD_MARSHALL(cmd_reply, req, msg_itf_push_bitstream_buffer);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_push_bitstream_buffer);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_push_bitstream_buffer);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_push_bitstream_buffer);
 
   res = ret ? false : reply.res;
 
@@ -556,13 +571,13 @@ static bool AL_Decoder_PushBuffer_Riscv(AL_HDecoder hDec, AL_TBuffer* pBuf, size
 static void AL_Decoder_Flush_Riscv(AL_HDecoder hDec)
 {
   AL_HDecoderWrapper* pWrapper = hDec;
-  struct msg_itf_flush_req_full req;
+  struct msg_interface_flush_req_full req;
   struct codec_cmd_reply cmd_reply;
 
-  req.hdr.type = MSG_ITF_TYPE_FLUSH_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_FLUSH_REQ;
   req.req.hDec = pWrapper->hDec;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_flush);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_flush);
   ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
 }
 
@@ -592,8 +607,8 @@ static AL_TRiscvMetaData* getOrAllocRiscvMetaData(AL_TBuffer* pDisplay)
 /*****************************************************************************/
 static bool AL_Decoder_PutDisplayPicture_Riscv(AL_HDecoder hDec, AL_TBuffer* pDisplay)
 {
-  struct msg_itf_put_display_picture_req_full req;
-  struct msg_itf_put_display_picture_reply reply;
+  struct msg_interface_put_display_picture_req_full req;
+  struct msg_interface_put_display_picture_reply reply;
   AL_HDecoderWrapper* pWrapper = hDec;
   struct codec_cmd_reply cmd_reply;
   AL_TPixMapMetaData* pMeta;
@@ -609,7 +624,7 @@ static bool AL_Decoder_PutDisplayPicture_Riscv(AL_HDecoder hDec, AL_TBuffer* pDi
   if(!getOrAllocRiscvMetaData(pDisplay))
     return false;
 
-  req.hdr.type = MSG_ITF_TYPE_PUT_DISPLAY_PICTURE_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_PUT_DISPLAY_PICTURE_REQ;
   req.req.hDec = pWrapper->hDec;
   req.req.pDisplay = (intptr_t)pDisplay;
   req.req.tDim = pMeta->tDim;
@@ -626,9 +641,9 @@ static bool AL_Decoder_PutDisplayPicture_Riscv(AL_HDecoder hDec, AL_TBuffer* pDi
     req.req.tPlanes[i] = pMeta->tPlanes[i];
 
   AL_Buffer_Ref(pDisplay);
-  CMD_MARSHALL(cmd_reply, req, msg_itf_put_display_picture);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_put_display_picture);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_put_display_picture);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_put_display_picture);
 
   res = ret ? false : reply.res;
 
@@ -641,23 +656,23 @@ static bool AL_Decoder_PutDisplayPicture_Riscv(AL_HDecoder hDec, AL_TBuffer* pDi
 /*****************************************************************************/
 static bool AL_Decoder_SetDecOutputSettings_Riscv(AL_HDecoder hDec, AL_TDecOutputSettings const* pDecOutputSettings)
 {
-  struct msg_itf_configure_output_settings_req_full req;
-  struct msg_itf_configure_output_settings_reply reply;
+  struct msg_interface_configure_output_settings_req_full req;
+  struct msg_interface_configure_output_settings_reply reply;
   AL_HDecoderWrapper* pWrapper = hDec;
   struct codec_cmd_reply cmd_reply;
   bool res;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_CONFIGURE_OUTPUT_SETTINGS_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_CONFIGURE_OUTPUT_SETTINGS_REQ;
 
   req.req.hDec = pWrapper->hDec;
   req.req.bCustomFormat = pDecOutputSettings->bCustomFormat;
 
   req.req.tPicFormat = pDecOutputSettings->tPicFormat;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_configure_output_settings);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_configure_output_settings);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_configure_output_settings);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_configure_output_settings);
 
   res = ret ? false : reply.res;
 
@@ -668,17 +683,17 @@ static bool AL_Decoder_SetDecOutputSettings_Riscv(AL_HDecoder hDec, AL_TDecOutpu
 static int AL_Decoder_GetMaxBD_Riscv(AL_HDecoder hDec)
 {
   AL_HDecoderWrapper* pWrapper = hDec;
-  struct msg_itf_get_maxdepth_req_full req;
-  struct msg_itf_get_maxdepth_reply reply;
+  struct msg_interface_get_maxdepth_req_full req;
+  struct msg_interface_get_maxdepth_reply reply;
   struct codec_cmd_reply cmd_reply;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_GET_MAXDEPTH_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_GET_MAXDEPTH_REQ;
   req.req.hDec = pWrapper->hDec;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_get_maxdepth);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_get_maxdepth);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_get_maxdepth);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_get_maxdepth);
 
   return ret ? 0 : reply.iMaxDepth;
 }
@@ -687,17 +702,17 @@ static int AL_Decoder_GetMaxBD_Riscv(AL_HDecoder hDec)
 static AL_ECodec AL_Decoder_GetCodec_Riscv(AL_HDecoder hDec)
 {
   AL_HDecoderWrapper* pWrapper = hDec;
-  struct msg_itf_get_codec_req_full req;
-  struct msg_itf_get_codec_reply reply;
+  struct msg_interface_get_codec_req_full req;
+  struct msg_interface_get_codec_reply reply;
   struct codec_cmd_reply cmd_reply;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_GET_CODEC_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_GET_CODEC_REQ;
   req.req.hDec = pWrapper->hDec;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_get_codec);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_get_codec);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_get_codec);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_get_codec);
 
   return ret ? AL_CODEC_INVALID : reply.eCodec;
 }
@@ -706,17 +721,17 @@ static AL_ECodec AL_Decoder_GetCodec_Riscv(AL_HDecoder hDec)
 static AL_ERR AL_Decoder_GetLastError_Riscv(AL_HDecoder hDec)
 {
   AL_HDecoderWrapper* pWrapper = hDec;
-  struct msg_itf_get_last_error_req_full req;
-  struct msg_itf_get_last_error_reply reply;
+  struct msg_interface_get_last_error_req_full req;
+  struct msg_interface_get_last_error_reply reply;
   struct codec_cmd_reply cmd_reply;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_GET_LAST_ERROR_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_GET_LAST_ERROR_REQ;
   req.req.hDec = pWrapper->hDec;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_get_last_error);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_get_last_error);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_get_last_error);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_get_last_error);
 
   return ret ? AL_ERROR : reply.uLastError;
 }
@@ -739,29 +754,29 @@ static AL_ERR AL_Decoder_GetFrameError_Riscv(AL_HDecoder hDec, const AL_TBuffer*
 static bool AL_Decoder_PreallocateBuffers_Riscv(AL_HDecoder hDec)
 {
   AL_HDecoderWrapper* pWrapper = hDec;
-  struct msg_itf_preallocate_buffers_req_full req;
-  struct msg_itf_preallocate_buffers_reply reply;
+  struct msg_interface_preallocate_buffers_req_full req;
+  struct msg_interface_preallocate_buffers_reply reply;
   struct codec_cmd_reply cmd_reply;
   int ret;
 
-  req.hdr.type = MSG_ITF_TYPE_PREALLOCATE_BUFFERS_REQ;
+  req.hdr.type = MSG_INTERFACE_TYPE_PREALLOCATE_BUFFERS_REQ;
   req.req.hDec = pWrapper->hDec;
 
-  CMD_MARSHALL(cmd_reply, req, msg_itf_preallocate_buffers);
+  CMD_MARSHALL(cmd_reply, req, msg_interface_preallocate_buffers);
   ret = ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
-  REPLY_UNMARSHALL(cmd_reply, reply, msg_itf_preallocate_buffers);
+  REPLY_UNMARSHALL(cmd_reply, reply, msg_interface_preallocate_buffers);
 
   return ret ? false : reply.res;
 }
 
-static uint32_t AL_Decoder_GetMinPitch_Riscv(uint32_t uWidth, AL_TPicFormat const* pPicFormat)
+static int32_t AL_Decoder_GetMinPitch_Riscv(int32_t iWidth, AL_TPicFormat const* pPicFormat)
 {
-  return RndPitch(uWidth, pPicFormat);
+  return RndPitch(iWidth, pPicFormat);
 }
 
-static uint32_t AL_Decoder_GetMinStrideHeight_Riscv(uint32_t uHeight)
+static int32_t AL_Decoder_GetMinStrideHeight_Riscv(int32_t iHeight, AL_TPicFormat const* pPicFormat)
 {
-  return RndHeight(uHeight);
+  return RndHeight(iHeight, pPicFormat);
 }
 
 static void AL_Deinit_Riscv(void)

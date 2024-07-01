@@ -18,6 +18,7 @@ LIB_COMMON_SRC:=\
   lib_common/Error.c\
   lib_common/DisplayInfoMeta.c\
   lib_common/PicFormat.c\
+  lib_common/StaticFifo.c\
 
 HAS_COLOR_SPACE_CONVERSION=0
 
@@ -54,13 +55,17 @@ ifneq ($(ENABLE_RISCV),0)
     lib_common/RiscvDmaAllocator.c
 endif
 
+ifneq ($(ENABLE_ENC_SW_MULTIPASS),0)
   LIB_COMMON_SRC+=lib_common/BufferLookAheadMeta.c
+endif
 
 ifneq ($(ENABLE_HIGH_DYNAMIC_RANGE),0)
   LIB_COMMON_SRC+=lib_common/HDR.c
 endif
 endif
 
+ifneq ($(ENABLE_FBC),0)
   LIB_COMMON_SRC+=lib_common/FbcMapSize.c
+endif
 
 

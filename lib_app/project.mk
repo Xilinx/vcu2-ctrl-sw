@@ -30,8 +30,10 @@ LIB_APP_SRC:=\
 
 
 
+ifneq ($(ENABLE_FBC), 0)
   LIB_APP_SRC+=lib_app/CompFrameWriter.cpp
   LIB_APP_SRC+=lib_app/CompFrameReader.cpp
+endif
 
 ifeq ($(findstring mingw,$(TARGET)),mingw)
   LIB_APP_SRC+=lib_app/console_windows.cpp

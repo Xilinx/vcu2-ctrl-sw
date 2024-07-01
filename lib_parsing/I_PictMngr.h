@@ -16,6 +16,7 @@
 
 #include "lib_common_dec/DecSliceParam.h"
 #include "lib_common_dec/DecInfo.h"
+#include "lib_rtos/types.h"
 #include "lib_common_dec/DecFramePool.h"
 #include "include/lib_common_dec/DecOutputSettings.h"
 #include "DPB.h"
@@ -46,7 +47,7 @@ typedef struct
   AL_ERR eError;
 }AL_TFrameFifo;
 
-typedef struct t_FrmBufPool
+typedef struct
 {
   AL_TFrameFifo array[FRM_BUF_POOL_SIZE];
   int iFifoHead;
@@ -66,7 +67,7 @@ typedef struct t_FrmBufPool
    \ingroup BufPool
    \brief MotionVector Buffer Pool object
 *****************************************************************************/
-typedef struct t_MvBufPool
+typedef struct
 {
   TBufferMV pMvBufs[MAX_DPB_SIZE]; /*!< The MV/coloc buffer pool */
   TBuffer pPocBufs[MAX_DPB_SIZE]; /*!< The POC list buffer pool */
@@ -74,7 +75,7 @@ typedef struct t_MvBufPool
 
   // Free Buffers
   uint8_t pFreeIDs[MAX_DPB_SIZE]; /*!< Heap of free buffer index */
-  int32_t iAccessCnt[MAX_DPB_SIZE]; /*number of handles holding the motion-vector*/
+  int32_t iAccessCnt[MAX_DPB_SIZE]; /*!< Number of handles holding the motion-vector */
   int iFreeCnt;                /*!< Number of free buffer in m_pFreeIDs */
 
   AL_MUTEX Mutex;
@@ -85,13 +86,14 @@ typedef struct t_MvBufPool
    \brief Reference Picture List Context
 *****************************************************************************/
 /* reference picture list construction variables */
-typedef struct AL_THevcRefPicCtx
+typedef struct
 {
-  int PocStCurrBefore[MAX_DPB_SIZE];
-  int PocStCurrAfter[MAX_DPB_SIZE];
-  int PocStFoll[MAX_DPB_SIZE];
-  int PocLtCurr[MAX_DPB_SIZE];
-  int PocLtFoll[MAX_DPB_SIZE];
+  int32_t PocStCurrBefore[MAX_DPB_SIZE];
+  int32_t PocStCurrAfter[MAX_DPB_SIZE];
+  int32_t PocStFoll[MAX_DPB_SIZE];
+
+  int32_t PocLtCurr[MAX_DPB_SIZE];
+  int32_t PocLtFoll[MAX_DPB_SIZE];
 
   uint8_t RefPicSetStCurrBefore[MAX_DPB_SIZE];
   uint8_t RefPicSetStCurrAfter[MAX_DPB_SIZE];
@@ -103,35 +105,33 @@ typedef struct AL_THevcRefPicCtx
 /*************************************************************************//*!
    \brief Picture Manager Context
 *****************************************************************************/
-typedef struct t_PictMngrCtx
+typedef struct
 {
   AL_MUTEX FirstInitMutex;
   bool bFirstInit;
   bool bForceOutput;
   AL_EFbStorageMode eFbStorageMode;
   AL_TDecOutputSettings tDecOutputSettings;
-  bool bEnablePostproc;
-  int iBitdepth;
 
+  bool bEnablePostproc;
   AL_TFrmBufPool FrmBufPool;
   AL_TMvBufPool MvBufPool;
   AL_TDpb DPB;
 
   // Current Buffers/index
-  uint8_t uRecID;    /*!< Index of the Frame buffer currently used as reconstructed buffer */
-  uint8_t uMvID;     /*!< Index of the Motionvector buffers currently used */
+  uint8_t uFrameID;    /*!< Index of the Frame buffer currently used as decoded buffer */
+  uint8_t uMvID;     /*!< Index of the Motion Vector buffers currently used */
 
-  uint32_t uSizeMV;  /*!< Whole size of motion-vector Buffer */
-  uint32_t uSizePOC; /*!< Whole size of poc Buffer */
+  int32_t iSizeMV;  /*!< Whole size of motion-vector Buffer */
 
-  int iCurFramePOC;
   AL_EPicStruct ePicStruct;
 
   /*info needed for POC calculation*/
+  int32_t iCurFramePOC;
   int32_t iPrevPocMSB;
-  uint32_t uPrevPocLSB;
-  int iPrevFrameNumOffset;
-  int iPrevFrameNum;
+  int32_t iPrevPocLSB;
+  AL_64S iPrevFrameNumOffset;
+  AL_64S iPrevFrameNum;
   int32_t iTopFieldOrderCnt;
   int32_t iBotFieldOrderCnt;
   bool bLastIsIDR;
@@ -145,26 +145,23 @@ typedef struct t_PictMngrCtx
 
 }AL_TPictMngrCtx;
 
-typedef struct AL_TPictMngrParam
+typedef struct
 {
   int iNumDPBRef; /*!< Number of reference to manage */
   AL_EDpbMode eDPBMode; /*!< Mode of the DPB */
   AL_EFbStorageMode eFbStorageMode; /*!< Frame buffer storage mode */
-  int iBitdepth; /*!< Bitdepth of the outputted frame */
 
   int iNumMV;  /*!< Number of motion-vector buffer to manage */
-  int iSizeMV; /*!< Size of motion-vector buffer managed */
+  int32_t iSizeMV; /*!< Size of motion-vector buffer managed */
 
   bool bForceOutput; /*!< Force frame output */
-  AL_TAllocator* pAllocator; /*!< Internal frame buffer allocator */
   AL_TPosition tOutputPosition; /*!< Specifies the position offset of the active area in the frame buffers */
 }AL_TPictMngrParam;
 
 /*************************************************************************//*!
    \brief Pre initialize the PictureManager. This must be called before
-          another thread may call AL_PictMngr_Init()
+          another thread may call AL_PictMngr_Init(void)
    \param[in] pCtx        Pointer to a Picture manager context object
-   \param[in] pParam      Picture manager parameters
    \return If the function succeeds then return true. Return false otherwise
 *****************************************************************************/
 bool AL_PictMngr_PreInit(AL_TPictMngrCtx* pCtx);
@@ -175,7 +172,7 @@ bool AL_PictMngr_PreInit(AL_TPictMngrCtx* pCtx);
    \param[in] pParam      Picture manager parameters
    \return If the function succeeds then return true. Return false otherwise
 *****************************************************************************/
-bool AL_PictMngr_BasicInit(AL_TPictMngrCtx* pCtx, AL_TPictMngrParam* pParam);
+bool AL_PictMngr_BasicInit(AL_TPictMngrCtx* pCtx, AL_TPictMngrParam const* pParam);
 
 /*************************************************************************//*!
    \brief Initialize the PictureManager.
@@ -289,7 +286,7 @@ uint8_t AL_PictMngr_GetLastPicID(AL_TPictMngrCtx const* pCtx);
    \param[in] iFramePOC       Picture order count of the decoded picture
    \param[in] ePicStruct      Picture structure of the decoded picture
    \param[in] uPocLsb         poc_lsb value of the decoded picture
-   \param[in] iFrameID        Frame id of he associated frame buffer
+   \param[in] iFrameID        Frame id of the associated frame buffer
    \param[in] uMvID           Motion-vector id of the associated frame buffer
    \param[in] pic_output_flag Flag which specifies if the decoded picture is needed for output
    \param[in] eMarkingFlag    Reference status of the decoded picture
@@ -314,7 +311,7 @@ void AL_PictMngr_EndDecoding(AL_TPictMngrCtx* pCtx, int iFrameID);
    \return Pointer on the picture buffer to be displayed if it exists
    NULL otherwise
 *****************************************************************************/
-AL_TBuffer* AL_PictMngr_GetDisplayBuffer(AL_TPictMngrCtx const* pCtx, AL_TInfoDecode* pInfo, bool* pStartsNewCVS);
+AL_TBuffer* AL_PictMngr_GetDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TInfoDecode* pInfo, bool* pStartsNewCVS);
 AL_TBuffer* AL_PictMngr_ForceDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TInfoDecode* pInfo, bool* pStartsNewCVS, int iFrameID);
 
 /*************************************************************************//*!
@@ -326,26 +323,12 @@ AL_TBuffer* AL_PictMngr_ForceDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TInfoDecode
 bool AL_PictMngr_PutDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TBuffer* pBuf);
 
 /*************************************************************************//*!
-   \brief This function returns the Minimum frame buffer size
-   \param[in] pCtx   Pointer to a Picture manager context object
-   \return int framebuffer size
-*****************************************************************************/
-int AL_PictMngr_GetMinBufferSize(AL_TPictMngrCtx const* pCtx);
-
-/*************************************************************************//*!
-   \brief This function returns the Minimum frame buffer dimensions
-   \param[in] pCtx   Pointer to a Picture manager context object
-   \return AL_TDimension Actual framebuffer pitch and Height
-*****************************************************************************/
-AL_TDimension AL_PictMngr_GetMinBufferDim(AL_TPictMngrCtx const* pCtx, AL_EFbStorageMode eDisplayStorageMode);
-
-/*************************************************************************//*!
    \brief This function returns the display picture buffer associated to iFrameID
    \param[in]  pCtx      Pointer to a Picture manager context object
    \param[in]  iFrameID  Frame ID
    \return Picture buffer's pointer
 *****************************************************************************/
-AL_TBuffer* AL_PictMngr_GetDisplayBufferFromID(AL_TPictMngrCtx const* pCtx, int iFrameID);
+AL_TBuffer* AL_PictMngr_GetDisplayBufferFromID(AL_TPictMngrCtx* pCtx, int iFrameID);
 
 /*************************************************************************//*!
    \brief This function returns the reconstructed picture buffer associated to iFrameID
@@ -353,7 +336,7 @@ AL_TBuffer* AL_PictMngr_GetDisplayBufferFromID(AL_TPictMngrCtx const* pCtx, int 
    \param[in]  iFrameID  Frame ID
    \return Picture buffer's pointer
 *****************************************************************************/
-AL_TBuffer* AL_PictMngr_GetRecBufferFromID(AL_TPictMngrCtx const* pCtx, int iFrameID);
+AL_TBuffer* AL_PictMngr_GetRecBufferFromID(AL_TPictMngrCtx* pCtx, int iFrameID);
 
 /*************************************************************************//*!
    \brief This function returns the encoding error status associated to a display or rec buffer
@@ -375,14 +358,19 @@ void AL_PictMngr_DecommitPool(AL_TPictMngrCtx* pCtx);
 void AL_PictMngr_UnlockID(AL_TPictMngrCtx* pCtx, int iFrameID, int iMotionVectorID);
 
 /*****************************************************************************/
-bool AL_PictMngr_GetBuffers(AL_TPictMngrCtx const* pCtx, AL_TDecSliceParam const* pSP, TBuffer* pListVirtAddr, TBuffer* pListAddr, TBufferPOC* pPOC, TBufferMV* pMV, AL_TRecBuffers* pRecs);
+bool AL_PictMngr_GetBuffers(AL_TPictMngrCtx* pCtx, AL_TDecSliceParam const* pSP, TBuffer* pListVirtAddr, TBuffer* pListAddr, TBufferPOC* pPOC, TBufferMV* pMV, AL_TRecBuffers* pRecs);
 
 /*************************************************************************//*!
    \brief This function allocate memory blocks used by the decoder for reconstructed frame buffers when second output activated
    \param[in] pCtx pict manager context
+   \param[in] tDim Dimension
+   \param[in] iBitDepth BitDepth
+   \param[in] eChromaMode Chroma mode
+   \param[in] bEnableFBC Frame Buffer Compression enabled
+   \param[in] iNum Number of buffers to allocate
    \return If the function succeeds the return value is nonzero (true)
    If the function fails the return value is zero (false)
 *****************************************************************************/
-bool AL_PictMngr_AllocInternalFrameBufs(AL_TPictMngrCtx* pCtx, AL_TDimension tDim, AL_EChromaMode eChromaMode, bool bEnableFBC, int iNum);
+bool AL_PictMngr_AllocInternalFrameBufs(AL_TPictMngrCtx* pCtx, AL_TDimension tDim, int8_t iBitDepth, AL_EChromaMode eChromaMode, bool bEnableFBC, int iNum);
 
 /*@}*/

@@ -11,7 +11,6 @@
 extern "C"
 {
 #include "lib_fpga/DmaAlloc.h"
-#include "lib_log/LoggerDefault.h"
 #include "lib_log/TimerSoftware.h"
 }
 using namespace std;
@@ -45,7 +44,7 @@ void CIpDevice::ConfigureRiscv(CIpDeviceParam& param)
     throw runtime_error("Can't find dma allocator");
 }
 
-CIpDevice::~CIpDevice()
+CIpDevice::~CIpDevice(void)
 {
   if(m_pScheduler)
     AL_IEncScheduler_Destroy(m_pScheduler);

@@ -11,11 +11,11 @@ LIB_ENCODE_SRC+=\
 
 ifneq ($(ENABLE_RISCV),0)
   LIB_ENCODE_SRC+=\
-    lib_encode/msg_itf_generated.c
+    lib_encode/msg_interface_generated.c
 
 # seems that old gcc doesn't apply `#pragma GCC diagnostic ignored "-Wunused-function"`
 # so also disable in CFLAGS
-  $(BIN)/lib_encode/msg_itf_generated.c.o: CFLAGS+=-Wno-unused-function
+  $(BIN)/lib_encode/msg_interface_generated.c.o: CFLAGS+=-Wno-unused-function
 endif
 
 ifneq ($(ENABLE_ENC_AVC),0)

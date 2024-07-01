@@ -10,17 +10,17 @@ void CommandsSender::notifySceneChange(int lookAhead)
   AL_Encoder_NotifySceneChange(hEnc, lookAhead);
 }
 
-void CommandsSender::notifyIsLongTerm()
+void CommandsSender::notifyIsLongTerm(void)
 {
   AL_Encoder_NotifyIsLongTerm(hEnc);
 }
 
-void CommandsSender::notifyUseLongTerm()
+void CommandsSender::notifyUseLongTerm(void)
 {
   AL_Encoder_NotifyUseLongTerm(hEnc);
 }
 
-void CommandsSender::notifyIsSkip()
+void CommandsSender::notifyIsSkip(void)
 {
   AL_Encoder_NotifyIsSkip(hEnc);
 }
@@ -31,12 +31,12 @@ void CommandsSender::notifyIsSkip()
   if(!statement) \
     std::cerr << # statement << " failed with error : " << AL_Encoder_GetLastError(hEnc) << std::endl
 
-void CommandsSender::restartGop()
+void CommandsSender::restartGop(void)
 {
   CHECK(AL_Encoder_RestartGop(hEnc));
 }
 
-void CommandsSender::restartGopRecoveryPoint()
+void CommandsSender::restartGopRecoveryPoint(void)
 {
   CHECK(AL_Encoder_RestartGopRecoveryPoint(hEnc));
 }
@@ -188,7 +188,7 @@ void CommandsSender::setHDRIndex(int iHDRIdx)
   this->iHDRIdx = iHDRIdx;
 }
 
-void CommandsSender::Reset()
+void CommandsSender::Reset(void)
 {
   bInputChanged = false;
   bHDRChanged = false;

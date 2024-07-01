@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "lib_common/MemDesc.h"
 #include "lib_common_enc/EncPicInfo.h"
 #include "PictureInfo.h"
 #include "RefInfo.h"
@@ -28,6 +29,7 @@ typedef struct
   AL_PADDR pStream;
   int32_t iMaxSize;
   int32_t iOffset;
+  int32_t iFirstSliceOffset;
   int32_t iStreamPartOffset;
   uint8_t* pExternalMV_v;
 }AL_EncStreamInfo;

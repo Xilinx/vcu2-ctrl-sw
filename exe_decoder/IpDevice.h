@@ -25,7 +25,7 @@ public:
 
   AL_EDeviceType GetDeviceType();
   void* GetScheduler() override;
-  AL_RiscV_Ctx GetCtx();
+  AL_RiscV_Ctx GetCtx() override;
   AL_TAllocator* GetAllocator() override;
   AL_ITimer* GetTimer() override;
 
@@ -44,22 +44,22 @@ private:
   void ConfigureRiscv();
 };
 
-inline void* CIpDevice::GetScheduler()
+inline void* CIpDevice::GetScheduler(void)
 {
   return m_pScheduler;
 }
 
-inline AL_RiscV_Ctx CIpDevice::GetCtx()
+inline AL_RiscV_Ctx CIpDevice::GetCtx(void)
 {
   return m_ctx;
 }
 
-inline AL_TAllocator* CIpDevice::GetAllocator()
+inline AL_TAllocator* CIpDevice::GetAllocator(void)
 {
   return m_pAllocator;
 }
 
-inline AL_ITimer* CIpDevice::GetTimer()
+inline AL_ITimer* CIpDevice::GetTimer(void)
 {
   return m_pTimer;
 }

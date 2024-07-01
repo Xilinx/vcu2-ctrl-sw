@@ -106,7 +106,7 @@ typedef struct
   bool bUserAutoQP;
 }AL_TEncSmartParams;
 
-typedef struct AL_TEncRequestInfo
+typedef struct
 {
   AL_ERequestEncOption eReqOptions;
   uint32_t uSceneChangeDelay;
@@ -118,7 +118,7 @@ typedef struct AL_TEncRequestInfo
 /*************************************************************************//*!
    \brief Stream partition structure
 *****************************************************************************/
-typedef struct AL_TStreamPart
+typedef struct
 {
   uint32_t uOffset;
   uint32_t uSize;
@@ -127,7 +127,7 @@ typedef struct AL_TStreamPart
 /*************************************************************************//*!
    \brief Picture status structure
 *****************************************************************************/
-typedef struct AL_TEncPicStatus
+typedef struct
 {
   AL_64U UserParam;
   AL_64U SrcHandle;
@@ -165,7 +165,7 @@ typedef struct AL_TEncPicStatus
   bool bIsFirstSlice;
   bool bIsLastSlice;
   int16_t iPpsQP;
-  int iRecoveryCnt;
+  int32_t iRecoveryCnt;
   uint8_t uTempId;
   int32_t iPOC;
 
@@ -188,12 +188,10 @@ typedef struct AL_TEncPicStatus
 
 }AL_TEncPicStatus;
 
-/*@}*/
-
 /*************************************************************************//*!
    \brief Picture buffers structure
 *****************************************************************************/
-typedef struct AL_TSrcInfo
+typedef struct
 {
   uint32_t uPitch;
   uint8_t uBitDepth;
@@ -202,7 +200,7 @@ typedef struct AL_TSrcInfo
   bool bRasterMSB;
 }AL_TSrcInfo;
 
-typedef struct AL_TSrcAddrs
+typedef struct
 {
   AL_PADDR pY;
   AL_PADDR pC1;
@@ -212,10 +210,12 @@ typedef struct AL_TSrcAddrs
   AL_PADDR pMapC2;
 }AL_TSrcAddrs;
 
-typedef struct AL_TEncPicBufAddrs
+typedef struct
 {
   AL_TSrcAddrs tSrcAddrs;
   AL_TSrcInfo tSrcInfo;
   AL_PADDR pEP2;
   AL_PTR64 pEP2_v;
 }AL_TEncPicBufAddrs;
+
+/*@}*/

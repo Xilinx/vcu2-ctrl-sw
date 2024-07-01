@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#ifndef __ENC_UAPI__
-#define __ENC_UAPI__ 1
+#pragma once
 
 struct codec_cmd_reply {
 	uint16_t req_size;
@@ -32,5 +31,3 @@ struct codec_event {
 #define CODEC_GET_EVENT			_IOWR('c', 4, struct codec_event)
 #define CODEC_DMA_FREE_MCU		_IOWR('c', 5, struct codec_dma_info)
 #define CODEC_DMA_GET_PHY       _IOWR('c', 7, struct codec_dma_info)
-
-#endif

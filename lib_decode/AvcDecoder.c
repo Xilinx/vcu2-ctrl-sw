@@ -185,19 +185,6 @@ static AL_ERR isSPSCompatibleWithInitialStreamSettings(AL_TDecCtx const* pCtx, A
     return AL_WARN_SPS_CHROMA_MODE_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS;
   }
 
-  // check SPS Dimensions against the size of the configured buffer
-  // The check should be made against the internal buffer, not the resulting secondOutput/postProc buffer
-  AL_EFbStorageMode eDisplayStorageMode = pCtx->pChanParam->eFBStorageMode;
-  bool bEnableDisplayCompression = pCtx->pChanParam->bFrameBufferCompression;
-  int iMinBufferSize = AL_PictMngr_GetMinBufferSize(&pCtx->PictMngr);
-  int iMinBuffRequired = AL_GetAllocSize_Frame(tSPSDim, eSPSChromaMode, getMaxBitDepthFromSPSPBitDepth(pSPS), bEnableDisplayCompression, eDisplayStorageMode);
-
-  if(iMinBufferSize < iMinBuffRequired)
-  {
-    Rtos_Log(AL_LOG_ERROR, "Buffer size '%i' is not supported by the CHANNEL. Minimum buffer size is '%i'.\n", iMinBuffRequired, iMinBufferSize);
-    return AL_WARN_SPS_RESOLUTION_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS;
-  }
-
   if(pStreamSettings->tDim.iWidth < tSPSDim.iWidth)
   {
     Rtos_Log(AL_LOG_ERROR, "Width '%i' is not supported by the CHANNEL. Maximum supported width is '%i'.\n", tSPSDim.iWidth, pStreamSettings->tDim.iWidth);
@@ -274,11 +261,9 @@ static bool allocateBuffers(AL_TDecCtx* pCtx, AL_TAvcSps const* pSPS, bool bHasF
   tPictMngrParam.iNumDPBRef = iDpbMaxBuf;
   tPictMngrParam.eDPBMode = pCtx->eDpbMode;
   tPictMngrParam.eFbStorageMode = pCtx->pChanParam->eFBStorageMode;
-  tPictMngrParam.iBitdepth = pStreamSettings->iBitDepth;
   tPictMngrParam.iNumMV = iMaxBuf;
   tPictMngrParam.iSizeMV = iSizeMV;
   tPictMngrParam.bForceOutput = pCtx->pChanParam->bUseEarlyCallback;
-  tPictMngrParam.pAllocator = pCtx->pInternalFrameBufAllocator;
   tPictMngrParam.tOutputPosition = pCtx->tOutputPosition;
 
   if(!AL_PictMngr_BasicInit(&pCtx->PictMngr, &tPictMngrParam))
@@ -589,12 +574,12 @@ static bool isRandomAccessPoint(AL_ENut eNUT)
 }
 
 /*****************************************************************************/
-static bool isValidSyncPoint(AL_TDecCtx* pCtx, AL_ENut eNUT, AL_ESliceType ePicType, int iRecoveryCnt)
+static bool isValidSyncPoint(AL_TDecCtx* pCtx, AL_ENut eNUT, AL_ESliceType ePicType, int32_t iRecoveryCnt)
 {
   if(isRandomAccessPoint(eNUT))
     return true;
 
-  if(iRecoveryCnt)
+  if(iRecoveryCnt != 0)
     return true;
 
   if(pCtx->bUseIFramesAsSyncPoint && eNUT == AL_AVC_NUT_VCL_NON_IDR && ePicType == AL_SLICE_I)
@@ -664,7 +649,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
 
   if(isValid)
   {
-    if(pSlice->pic_order_cnt_lsb != pCtx->uCurPocLsb && pSlice->first_mb_in_slice != 0)
+    if(pSlice->pic_order_cnt_lsb != pCtx->iCurPocLsb && pSlice->first_mb_in_slice != 0)
       bSliceBelongsToSameFrame = false;
   }
   else if(ret != AL_WARN_CONCEAL_DETECT)
@@ -736,7 +721,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
 
   if(isValid)
   {
-    pCtx->uCurPocLsb = pSlice->pic_order_cnt_lsb;
+    pCtx->iCurPocLsb = pSlice->pic_order_cnt_lsb;
 
     if(!initSlice(pCtx, pSlice))
     {
@@ -821,7 +806,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
       AL_AVC_FillPictParameters(pSlice, pCtx, pPP);
     AL_AVC_FillSliceParameters(pSlice, pCtx, pSP, pPP, false);
 
-    if(!constructRefPicList(pSlice, pCtx, &pCtx->ListRef) && !pIAUP->iRecoveryCnt)
+    if(!constructRefPicList(pSlice, pCtx, &pCtx->ListRef) && (pIAUP->iRecoveryCnt == 0))
     {
       concealSlice(pCtx, pPP, pSP, pSlice, eNUT);
     }

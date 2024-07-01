@@ -42,14 +42,12 @@ static int RiscvAllocToFd(AL_TAllocator* pAllocator)
   return pRiscvAllocator->fd;
 }
 
-static bool RiscvDmaDestroy(AL_TAllocator* pAllocator)
+static void RiscvDmaDestroy(AL_TAllocator* pAllocator)
 {
   AL_TRiscvAllocator* pRiscvAllocator;
 
   pRiscvAllocator = container_of(pAllocator, AL_TRiscvAllocator, dmaAllocator);
   Rtos_Free(pRiscvAllocator);
-
-  return true;
 }
 
 static AL_PADDR RiscvDmaGetPhysicalAddr(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
@@ -98,7 +96,7 @@ static AL_TAllocator* create(int fd, void const* vtable)
   if(!pAllocator)
     return NULL;
 
-  pAllocator->dmaAllocator.vtable = (AL_DmaAllocLinuxVtable const*)vtable;
+  pAllocator->dmaAllocator.vtable = (AL_TDmaAllocLinuxVTable const*)vtable;
   pAllocator->fd = fd;
 
   return (AL_TAllocator*)(&pAllocator->dmaAllocator);
@@ -234,7 +232,7 @@ static AL_HANDLE RiscvDmaImportFromFd_Dmabuf(AL_TLinuxDmaAllocator* pAllocator, 
   return NULL;
 }
 
-static const AL_DmaAllocLinuxVtable s_RiscvDmaAllocatorVtable =
+static AL_TDmaAllocLinuxVTable const s_RiscvDmaAllocatorVtable =
 {
   {
     .pfnDestroy = RiscvDmaDestroy,

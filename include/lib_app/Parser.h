@@ -73,17 +73,17 @@ static inline std::vector<Codec> isOnlyCodec(Codec codec)
   return filterCodecs({ codec });
 }
 
-static inline std::vector<Codec> aomCodecs()
+static inline std::vector<Codec> aomCodecs(void)
 {
   return filterCodecs({ Codec::Vp9, Codec::Av1 });
 }
 
-static inline std::vector<Codec> ituCodecs()
+static inline std::vector<Codec> ituCodecs(void)
 {
   return filterCodecs({ Codec::Hevc, Codec::Avc, Codec::Vvc });
 }
 
-static inline std::vector<Codec> aomituCodecs()
+static inline std::vector<Codec> aomituCodecs(void)
 {
   std::vector<Codec> aomituCodecs {};
 
@@ -96,7 +96,7 @@ static inline std::vector<Codec> aomituCodecs()
   return aomituCodecs;
 }
 
-static inline std::vector<Codec> allCodecs()
+static inline std::vector<Codec> allCodecs(void)
 {
   std::vector<Codec> allCodecs {
     aomituCodecs()
@@ -202,7 +202,7 @@ struct ArithInfoList
   std::vector<T> availableValuesList;
 };
 
-static inline std::vector<std::string> noNote()
+static inline std::vector<std::string> noNote(void)
 {
   return {};
 }

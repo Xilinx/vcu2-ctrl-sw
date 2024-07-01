@@ -20,7 +20,7 @@ void AL_DecFramePool_Init(AL_TDecFramePool* pCtx)
   AL_DecFramePool_ClearPool(pCtx);
 }
 
-static AL_TBuffer* CreateBuffer(AL_TDecFramePool* pCtx, AL_TAllocator* pAllocator, AL_TMetaData* pMeta, size_t zSize, char* const pDebugName)
+static AL_TBuffer* CreateBuffer(AL_TDecFramePool* pCtx, AL_TAllocator* pAllocator, AL_TMetaData* pMeta, size_t zSize, char const* pDebugName)
 {
   AL_TBuffer* pBuf = AL_Buffer_Create_And_AllocateNamed(pAllocator, zSize, AL_DecFramePool_OnRefCntNull, pDebugName);
 

@@ -397,7 +397,7 @@ void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus const* pS
   }
 
   AL_PictMngr_EndDecoding(&pCtx->PictMngr, iFrameID);
-  int iOffset = pCtx->iNumFrmBlk2 % MAX_STACK_SIZE;
+  int iOffset = pCtx->iNumFrmBlk2 % AL_DEC_SW_MAX_STACK_SIZE;
   AL_PictMngr_UnlockRefID(&pCtx->PictMngr, pCtx->uNumRef[iOffset], pCtx->uFrameIDRefList[iOffset], pCtx->uMvIDRefList[iOffset]);
   Rtos_GetMutex(pCtx->DecMutex);
   pCtx->iCurOffset = pCtx->iStreamOffset[pCtx->iNumFrmBlk2 % pCtx->iStackSize];
@@ -459,7 +459,7 @@ static void InitInternalBuffers(AL_TDecCtx* pCtx)
   MemDesc_Init(&pCtx->BufSCD.tMD);
   MemDesc_Init(&pCtx->SCTable.tMD);
 
-  for(int i = 0; i < MAX_STACK_SIZE; ++i)
+  for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; ++i)
   {
     MemDesc_Init(&pCtx->PoolSclLst[i].tMD);
     MemDesc_Init(&pCtx->PoolCompData[i].tMD);
@@ -475,7 +475,7 @@ static void InitInternalBuffers(AL_TDecCtx* pCtx)
     MemDesc_Init(&pCtx->PictMngr.MvBufPool.pPocBufs[i].tMD);
   }
 
-  for(int i = 0; i < MAX_STACK_SIZE; i++)
+  for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; i++)
   {
     MemDesc_Init(&pCtx->HuffmanBuffer[i].tMD);
     MemDesc_Init(&pCtx->QuantBuffer[i].tMD);
@@ -495,7 +495,7 @@ static void DeinitBuffers(AL_TDecCtx* pCtx)
     AL_Decoder_Free(&pCtx->PictMngr.MvBufPool.pMvBufs[i].tMD);
   }
 
-  for(int i = 0; i < MAX_STACK_SIZE; i++)
+  for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; i++)
   {
     AL_Decoder_Free(&pCtx->PoolCompData[i].tMD);
     AL_Decoder_Free(&pCtx->PoolCompMap[i].tMD);
@@ -505,7 +505,7 @@ static void DeinitBuffers(AL_TDecCtx* pCtx)
     AL_Decoder_Free(&pCtx->PoolSclLst[i].tMD);
   }
 
-  for(int i = 0; i < MAX_STACK_SIZE; i++)
+  for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; i++)
   {
     AL_Decoder_Free(&pCtx->HuffmanBuffer[i].tMD);
     AL_Decoder_Free(&pCtx->QuantBuffer[i].tMD);
@@ -1819,7 +1819,7 @@ static bool CheckDisplayBufferCanBeUsed(AL_TDecCtx* pCtx, AL_TBuffer* pBuf)
   if(iPitchY % 64 != 0)
     return false;
 
-  AL_TStreamSettings const* pSettings = &pCtx->tCurrentStreamSettings;
+  AL_TStreamSettings const* pSettings = &pCtx->tInitialStreamSettings;
   bool bEnableDisplayCompression;
   AL_EFbStorageMode const eDisplayStorageMode = AL_Default_Decoder_GetDisplayStorageMode(pCtx, pSettings->iBitDepth, &bEnableDisplayCompression);
   AL_ESamplePackMode eSamplePackMode = AL_SAMPLE_PACK_MODE_BYTE;
@@ -1929,7 +1929,7 @@ static bool ApplyOutputSettings(AL_TDecCtx* pCtx, AL_TDecOutputSettings const* p
     if(0 == iMaxBuf)
       return false;
 
-    if(!AL_PictMngr_AllocInternalFrameBufs(&pCtx->PictMngr, pCtx->tCurrentStreamSettings.tDim, pCtx->tCurrentStreamSettings.eChroma, pCtx->pChanParam->bFrameBufferCompression, iMaxBuf + pCtx->pChanParam->uNumBuffersHeldByNextComponent))
+    if(!AL_PictMngr_AllocInternalFrameBufs(&pCtx->PictMngr, pCtx->tCurrentStreamSettings.tDim, pCtx->tCurrentStreamSettings.iBitDepth, pCtx->tCurrentStreamSettings.eChroma, pCtx->pChanParam->bFrameBufferCompression, iMaxBuf + pCtx->pChanParam->uNumBuffersHeldByNextComponent))
       return false;
   }
 
@@ -2131,11 +2131,9 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
   tPictMngrParam.iNumDPBRef = iDpbMaxBuf;
   tPictMngrParam.eDPBMode = pCtx->eDpbMode;
   tPictMngrParam.eFbStorageMode = pCtx->pChanParam->eFBStorageMode;
-  tPictMngrParam.iBitdepth = pStreamSettings->iBitDepth;
   tPictMngrParam.iNumMV = iMaxBuf;
   tPictMngrParam.iSizeMV = iSizeMV;
   tPictMngrParam.bForceOutput = pCtx->pChanParam->bUseEarlyCallback;
-  tPictMngrParam.pAllocator = pCtx->pInternalFrameBufAllocator;
   tPictMngrParam.tOutputPosition = pCtx->tOutputPosition;
 
   if(!AL_PictMngr_BasicInit(&pCtx->PictMngr, &tPictMngrParam))
@@ -2239,7 +2237,7 @@ static bool CheckSettings(AL_TDecSettings const* pSettings)
 
   int const iStack = pSettings->iStackSize;
 
-  if((iStack < 1) || (iStack > MAX_STACK_SIZE))
+  if((iStack < 1) || (iStack > AL_DEC_SW_MAX_STACK_SIZE))
     return false;
 
   if((pSettings->uDDRWidth != 16) && (pSettings->uDDRWidth != 32) && (pSettings->uDDRWidth != 64))
@@ -2487,7 +2485,7 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
   AL_Conceal_Init(&pCtx->tConceal);
   // initialize decoder counters
-  pCtx->uCurPocLsb = 0xFFFFFFFF;
+  pCtx->iCurPocLsb = INT32_MAX;
   pCtx->uToggle = 0;
   pCtx->iNumFrmBlk1 = 0;
   pCtx->iNumFrmBlk2 = 0;
@@ -2517,7 +2515,7 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
   if(isJPEG(pSettings->eCodec))
   {
-    for(int i = 0; i < MAX_STACK_SIZE; i++)
+    for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; i++)
     {
       SAFE_ALLOC(pCtx, &pCtx->HuffmanBuffer[i].tMD, AL_JPEG_HUFFMAN_BUF_SIZE, "huffman");
       SAFE_ALLOC(pCtx, &pCtx->QuantBuffer[i].tMD, AL_JPEG_QUANT_BUF_SIZE, "quantization");

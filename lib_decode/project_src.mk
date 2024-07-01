@@ -14,11 +14,11 @@ LIB_DECODE_SRC+=\
 
 ifneq ($(ENABLE_RISCV),0)
   LIB_DECODE_SRC+=\
-    lib_decode/msg_itf_generated.c
+    lib_decode/msg_interface_generated.c
 
 # seems that old gcc doesn't apply `#pragma GCC diagnostic ignored "-Wunused-function"`
 # so also disable in CFLAGS
-  $(BIN)/lib_decode/msg_itf_generated.c.o: CFLAGS+=-Wno-unused-function
+  $(BIN)/lib_decode/msg_interface_generated.c.o: CFLAGS+=-Wno-unused-function
 endif
 
 ifneq ($(ENABLE_DEC_ITU), 0)

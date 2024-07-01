@@ -78,7 +78,7 @@ static string FourCCToString(TFourCC tFourCC)
   return ss.str();
 }
 
-static map<string, EnumDescription<int>> const getOutputFourCCs()
+static map<string, EnumDescription<int>> const getOutputFourCCs(void)
 {
   map<string, EnumDescription<int>> fourCCs;
   fourCCs["Y800"] = { FOURCC(Y800), "YUV file contains 8-bit monochrome.", allCodecs() };
@@ -153,7 +153,7 @@ static map<string, EnumDescription<int>> const getOutputFourCCs()
   return fourCCs;
 }
 
-static map<string, EnumDescription<int>> const getInputFourCCs()
+static map<string, EnumDescription<int>> const getInputFourCCs(void)
 {
   map<string, EnumDescription<int>> fourCCs;
   fourCCs["Y800"] = { FOURCC(Y800), "YUV file contains 8-bit monochrome.", allCodecs() };
@@ -414,7 +414,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
   parser.addSeeAlso(curSection, "RateCtrlMode", { curSection, "BitRate" });
   parser.addSeeAlso(curSection, "RateCtrlMode", { curSection, "MaxBitRate" });
   parser.addArithMultipliedByConstant(curSection, "BitRate", RCParam.uTargetBitRate, 1000, "Target bit rate in Kbits/s. Unused if RateCtrlMode=CONST_QP", {
-    { aomituCodecs(), 0, 240000 },
+    { allCodecs(), 0, 240000 },
   });
   parser.addNote(curSection, "BitRate", "The max value depends on profile, level, tiers, BitDepth, chromaMode. Therefore, it can be different from what is written above.");
   parser.addSeeAlso(curSection, "BitRate", { curSection, "RateCtrlMode" });
@@ -434,7 +434,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
   {
     auto tmp = parseArithmetic<double>(tokens) * 1000;
     SetFpsAndClkRatio(tmp, RCParam.uFrameRate, RCParam.uClkRatio);
-  }, [&]()
+  }, [&](void)
   {
     double frameRate = RCParam.uFrameRate * 1000.0 / RCParam.uClkRatio;
     return std::to_string(frameRate);
@@ -474,7 +474,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
     {
       RCParam.iMaxQP[i] = val;
     }
-  }, [&]()
+  }, [&](void)
   {
     return "";
   }, "Maximum QP value allowed", { ParameterType::String, ParameterType::ArithExpr }, mergeCallbackInfo(toCallbackInfo(qpArithInfo), toCallbackInfo(autoEnum)));
@@ -496,7 +496,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
     {
       RCParam.iMinQP[i] = val;
     }
-  }, [&]()
+  }, [&](void)
   {
     return "";
   }, "Minimum QP value allowed for I slices. This parameter is especially useful when using VBR rate control. In VBR, the value AUTO can be used to let the encoder select the MinQP according to SliceQP", { ParameterType::String, ParameterType::ArithExpr }, mergeCallbackInfo(toCallbackInfo(qpArithInfo), toCallbackInfo(autoEnum)));
@@ -548,12 +548,6 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
   }, [](decltype(RCParam.uMaxPSNR) value) { return (double)value / 100; }, "Specifies the maximum Peak Signal to Noise Ratio for the CAPPED_VBR rate control mode", {
     { aomituCodecs(), 20.00, 50.00 },
   });
-  parser.addArithFunc<decltype(RCParam.uMinPSNR), double>(curSection, "MinPSNR", RCParam.uMinPSNR, [](double value)
-  {
-    return (decltype(RCParam.uMinPSNR))(value * 100);
-  }, [](decltype(RCParam.uMinPSNR) value) { return (double)value / 100; }, "Specifies the minimum Peak Signal to Noise Ratio for the MIN_BR rate control mode", {
-    { aomituCodecs(), 20.00, 50.00 },
-  });
   map<string, EnumDescription<int>> MaxPictureSizeEnums;
   MaxPictureSizeEnums["DISABLE"] = { 0, "DISABLE to not constrain the picture size", aomituCodecs() };
   vector<ArithInfo<uint32_t>> MaxPictureAriths =
@@ -571,7 +565,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
 
     for(auto& picSize :  RCParam.pMaxPictureSize)
       picSize = size;
-  }, [&]()
+  }, [&](void)
   {
     return "";
   }, "Specifies a coarse picture size in bits that shouldn't be exceeded. Available Values: <Arithmetic expression> or DISABLE to not constrain the picture size", { ParameterType::String, ParameterType::ArithExpr }, mergeCallbackInfo(toCallbackInfo(MaxPictureAriths), toCallbackInfo(MaxPictureSizeEnums)));
@@ -589,7 +583,7 @@ static void populateRCParam(Section curSection, ConfigParser& parser, AL_TRCPara
 
     for(auto& picSize :  RCParam.pMaxPictureSize)
       picSize = size;
-  }, [&]()
+  }, [&](void)
   {
     return "";
   }, "Specifies a coarse picture size in Kbits that shouldn't be exceeded. Available Values: <Arithmetic expression> or DISABLE to not constrain the picture size", { ParameterType::String, ParameterType::ArithExpr }, mergeCallbackInfo(toCallbackInfo(MaxPictureAriths), toCallbackInfo(MaxPictureSizeEnums)));
@@ -872,7 +866,7 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
   {
     AL_EChromaMode mode = (AL_EChromaMode)parseEnum(tokens, chromaModes);
     AL_SET_CHROMA_MODE(&cfg.Settings.tChParam[0].ePicFormat, mode);
-  }, [chromaModes, &cfg]()
+  }, [chromaModes, &cfg](void)
   {
     AL_EChromaMode mode = AL_GET_CHROMA_MODE(cfg.Settings.tChParam[0].ePicFormat);
     return getDefaultEnumValue(mode, chromaModes);
@@ -939,7 +933,7 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
 
       settings.eQpTableMode = isRelativeTable ? AL_QP_TABLE_RELATIVE : AL_QP_TABLE_ABSOLUTE;
     }
-  }, [qpctrls, &cfg]()
+  }, [qpctrls, &cfg](void)
   {
     AL_EGenerateQpMode mode = cfg.RunInfo.eGenerateQpMode;
     return getDefaultEnumValue(mode, qpctrls);
@@ -979,10 +973,7 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
     auto const NumFactors = sizeof(pChan->LdaFactors) / sizeof(*pChan->LdaFactors);
     return getDefaultArrayValue(pChan->LdaFactors, NumFactors, 256);
   }, "Specifies a lambda factor for each pictures. The factors are ordered as: I, P, B(temporalId = 1), B(temporalId = 2), B(temporalId = 3), and B(temporalId = 4). A factor on LOAD_LDA lambdas is available for each picture type and temporal ID with the LambdaFactors table. Example: LambdaFactors = 0.20 0.35 0.59 0.60 1 1", { ParameterType::Array }, toCallbackInfo(ldaFactorsInfo));
-  map<string, EnumDescription<int>> cabacInitBackPort;
-  cabacInitBackPort["DISABLE"] = { 0, "Disable the CABAC initialization table", ituCodecs() };
-  cabacInitBackPort["ENABLE"] = { 1, "Enable the CABAC initialization table", filterCodecs({ Codec::Hevc, Codec::Vvc }) };
-  parser.addArithOrEnum(curSection, "CabacInit", cfg.Settings.tChParam[0].uCabacInitIdc, cabacInitBackPort, "As defined by the standard, it specifies the CABAC initialization table", {
+  parser.addArith(curSection, "CabacInit", cfg.Settings.tChParam[0].uCabacInitIdc, "As defined by the standard, it specifies the CABAC initialization table", {
     { isOnlyCodec(Codec::Avc), 0, 2 },
     { filterCodecs({ Codec::Hevc, Codec::Vvc }), 0, 1 },
   });
@@ -1058,13 +1049,20 @@ static void populateSettingsSection(ConfigParser& parser, ConfigFile& cfg, Tempo
     parser.addNote(curSection, "NumCore", "The value 0 is equal to AUTO.");
     parser.addNote(curSection, "NumCore", "The allowed number of core depends on parameters like: frame resolution, framerate, and hardware capabilities. When the specified number of core rise to an invalid configuration the encoder fails with message 'Error while creating channel'.");
   }
+
   parser.addFlag(curSection, "CostMode", cfg.Settings.tChParam[0].eEncOptions, AL_OPT_RDO_COST_MODE, "This parameter allows to reinforce the influence of the chrominance in the RDO choice. Useful to improve the visual quality of video sequences with low saturation.", aomituCodecs());
   parser.addFlag(curSection, "SAO", cfg.Settings.tChParam[0].eEncTools, AL_OPT_SAO, "Enable the Sample Adaptive Offset filter", filterCodecs({ Codec::Hevc, Codec::Vvc }));
-  map<string, EnumDescription<int>> videoModes;
-  videoModes["PROGRESSIVE"] = { AL_VM_PROGRESSIVE, "Progressive video mode", ituCodecs() };
-  videoModes["INTERLACED_TOP"] = { AL_VM_INTERLACED_TOP, "Interlaced video mode: top-bottom", filterCodecs({ Codec::Hevc, Codec::Vvc }) };
-  videoModes["INTERLACED_BOTTOM"] = { AL_VM_INTERLACED_BOTTOM, "Interlaced video mode: bottom-top", filterCodecs({ Codec::Hevc, Codec::Vvc }) };
-  parser.addEnum(curSection, "VideoMode", cfg.Settings.tChParam[0].eVideoMode, videoModes, "When using a profile, this parameter specifies if the video is progressive or interlaced. In interlaced mode, the corresponding flags in header and SEI message will be added.");
+
+  {
+    map<string, EnumDescription<int>> videoModes;
+    videoModes["PROGRESSIVE"] = { AL_VM_PROGRESSIVE, "Progressive video mode", ituCodecs() };
+    std::vector<Codec> interlacedCodecs;
+    interlacedCodecs.push_back(Codec::Hevc);
+    videoModes["INTERLACED_TOP"] = { AL_VM_INTERLACED_TOP, "Interlaced video mode: top-bottom", filterCodecs(interlacedCodecs) };
+    videoModes["INTERLACED_BOTTOM"] = { AL_VM_INTERLACED_BOTTOM, "Interlaced video mode: bottom-top", filterCodecs(interlacedCodecs) };
+    parser.addEnum(curSection, "VideoMode", cfg.Settings.tChParam[0].eVideoMode, videoModes, "When using a profile, this parameter specifies if the video is progressive or interlaced. In interlaced mode, the corresponding flags in header and SEI message will be added.");
+  }
+
   parser.addBool(curSection, "ForcePpsIdToZero", cfg.Settings.tChParam[0].bForcePpsIdToZero, "Every PPS ID is set to 0. Not compatible with reordering. By default, the pps id increases by 1 each time a PPS with different settings must be sent.", ituCodecs());
 
   parser.addNote(curSection, "LookAhead", "TwoPass, SCDFirstPass and LookAhead are exclusive modes. Only one of them can be enabled at the same time.");
@@ -1441,11 +1439,11 @@ static bool ParseScalingListFile(const string& sSLFileName, AL_TEncSettings& Set
 
   int iLine = 0;
 
-  memset(Settings.SclFlag, 0, sizeof(Settings.SclFlag));
+  ::memset(Settings.SclFlag, 0, sizeof(Settings.SclFlag));
   Settings.DcCoeffFlag = 0;
 
-  memset(Settings.ScalingList, -1, sizeof(Settings.ScalingList));
-  memset(Settings.DcCoeff, -1, sizeof(Settings.DcCoeff));
+  ::memset(Settings.ScalingList, -1, sizeof(Settings.ScalingList));
+  ::memset(Settings.DcCoeff, -1, sizeof(Settings.DcCoeff));
 
   for(;;)
   {

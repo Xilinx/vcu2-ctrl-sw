@@ -17,7 +17,7 @@
 /*************************************************************************//*!
    \brief Encoding parameters buffers (EP1, EP2, EP3 and EP4 buffers) sub buffer information
 *****************************************************************************/
-typedef struct
+typedef struct AL_TBufInfo
 {
   uint32_t Flag; /*!< Flag used as a bitfield bit position in an EP buffer to identify the sub buffer.*/
   size_t Size; /*!< Size of the sub buffer */
@@ -27,7 +27,7 @@ typedef struct
 /*************************************************************************//*!
    \brief Lambda Control Mode
 *****************************************************************************/
-typedef enum
+typedef enum AL_ELdaCtrlMode
 {
   AL_DEFAULT_LDA = 0x00, /*!< default behaviour */
   AL_CUSTOM_LDA = 0x01, /*!< used for test purpose */
@@ -54,7 +54,7 @@ static inline bool AL_LdaIsSane(AL_ELdaCtrlMode lda)
 /*************************************************************************//*!
    \brief GDR (Gradual Decoding Refresh) Mode
 *****************************************************************************/
-typedef enum
+typedef enum AL_EGdrMode
 {
   AL_GDR_OFF = 0x00,/*!< No GDR */
   AL_GDR_ON = 0x02,/*!< GDR is selected */
@@ -66,7 +66,7 @@ typedef enum
 /*************************************************************************//*!
    \brief Multi chip clip mode
 *****************************************************************************/
-typedef enum
+typedef enum AL_EMultiChipClipMode
 {
   AL_MC_CLIP_NONE = 0x00,
   AL_MC_CLIP_LEFT = 0x01,
@@ -91,7 +91,7 @@ typedef AL_INTROSPECT (category = "debug") struct AL_TMultiChipParam
 /*************************************************************************//*!
    \brief Picture format enum
 *****************************************************************************/
-typedef enum
+typedef enum AL_EPicFormat
 {
   AL_400_8BITS = 0x0088,
   AL_420_8BITS = 0x0188,
@@ -159,7 +159,7 @@ static inline void AL_SET_CHROMA_MODE(AL_EPicFormat* pPicFormat, AL_EChromaMode 
 /*************************************************************************//*!
    \brief Encoding High level syntax enum
 *****************************************************************************/
-typedef enum
+typedef enum AL_EHlsFlag
 {
   AL_SPS_LOG2_MAX_POC_MASK = 0x0000000F,
   AL_SPS_LOG2_MAX_FRAME_NUM_MASK = 0x000000F0,
@@ -270,7 +270,7 @@ static inline uint32_t AL_GetNumberOfRef(uint32_t HlsParam)
 /*************************************************************************//*!
    \brief Encoding option enum
 *****************************************************************************/
-typedef enum
+typedef enum AL_EChEncOption
 {
   AL_OPT_NONE = 0x00000000,
   AL_OPT_QP_TAB_RELATIVE = 0x00000001, /*!< External QP tables provide relative delta-QPs to add for each block on top of the frame-QP */
@@ -293,7 +293,7 @@ typedef enum
 /*************************************************************************//*!
    \brief Encoding tools enum
 *****************************************************************************/
-typedef enum
+typedef enum AL_EChEncTool
 {
   AL_OPT_WPP = 0x00000001, /*!< DEPRECATED */
   AL_OPT_TILE = 0x00000002, /*!< INTERNAL PARAMETER - Do not tune */
@@ -302,18 +302,18 @@ typedef enum
   AL_OPT_LF_X_TILE = 0x00000010, /*!< Enables loop filter across tiles */
   AL_OPT_SCL_LST = 0x00000020, /*!< INTERNAL PARAMETER - Do not tune */
   AL_OPT_CONST_INTRA_PRED = 0x00000040, /*!< Specifies the value of constrained_intra_pred_flag syntax element */
-  AL_OPT_TRANSFO_SKIP = 0x00000080, /*!< Enables the transform skip encoding mode */
   AL_OPT_SAO_Y = 0x00000200, /*!< Enable the Sample Adaptive Offset filter for luma only */
   AL_OPT_SAO_C = 0x00000400, /*!< Enable the Sample Adaptive Offset filter for chroma only */
   AL_OPT_SAO = 0x00000200, /*!< Enable the Sample Adaptive Offset filter */
   AL_OPT_PCM = 0x00000800, /*!< Enable PCM encoding (raw bloc encoding) */
   AL_OPT_DIRECT_SPATIAL = 0x00004000, /*!< AVC direct spatial motion vector candidate */
+
 }AL_EChEncTool;
 
 /*************************************************************************//*!
    \brief Rate Control Mode
 *****************************************************************************/
-typedef enum
+typedef enum AL_ERateCtrlMode
 {
   AL_RC_CONST_QP = 0x00,
   AL_RC_CBR = 0x01,
@@ -329,7 +329,7 @@ typedef enum
 /*************************************************************************//*!
    \brief Rate Control Options
 *****************************************************************************/
-typedef enum
+typedef enum AL_ERateCtrlOption
 {
   AL_RC_OPT_NONE = 0x00000000, /*!< No Option */
   AL_RC_OPT_SCN_CHG_RES = 0x00000001, /* internal */
@@ -365,7 +365,6 @@ typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TRCParam
   int16_t uGoldenRefFrequency;
   AL_ERateCtrlOption eOptions; /*!< Options bitfield. \see AL_ERateCtrlOption for the available flags*/
   uint32_t uNumPel;
-  uint16_t uMinPSNR;
   uint16_t uMaxPSNR;
   uint16_t uMaxPelVal;
   uint32_t pMaxPictureSize[AL_MAX_FRAME_TYPE];
@@ -386,7 +385,7 @@ static inline bool AL_IS_ENC_HW_RATE_CTRL_ENABLED(AL_TRCParam const* pRCParam)
 #define AL_GOP_FLAG_DEFAULT 0x02
 #define AL_GOP_FLAG_PYRAMIDAL 0x04
 #define AL_GOP_FLAG_LOW_DELAY 0x08
-typedef enum
+typedef enum AL_EGopCtrlMode
 {
   AL_GOP_MODE_DEFAULT = AL_GOP_FLAG_DEFAULT,
   AL_GOP_MODE_PYRAMIDAL = AL_GOP_FLAG_PYRAMIDAL,
@@ -426,7 +425,7 @@ typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TGopPara
 /*************************************************************************//*!
    \brief First Pass infos parameters
 *****************************************************************************/
-typedef struct
+typedef struct AL_TLookAheadParam
 {
   int32_t iSCPictureSize;
   int32_t iSCIPRatio;
@@ -437,7 +436,7 @@ typedef struct
 /*************************************************************************//*!
    \brief Max burst size
 *****************************************************************************/
-typedef enum
+typedef enum AL_EMaxBurstSize
 {
   AL_BURST_256 = 0,
   AL_BURST_128 = 1,
@@ -449,7 +448,7 @@ typedef enum
    \brief Source compression type
 *****************************************************************************/
 // [0] : CompMode | [3:1] : SourceFormat
-typedef enum
+typedef enum AL_ESrcMode
 {
   AL_SRC_RASTER = 0x0,
   AL_SRC_TILE_64x4 = 0x4,
@@ -469,7 +468,7 @@ AL_DEPRECATED_ENUM_VALUE(AL_ESrcMode, AL_SRC_NVX, AL_SRC_RASTER, "Renamed. Use A
 /*************************************************************************//*!
    \brief AOM interpolation filter
 *****************************************************************************/
-typedef enum
+typedef enum AL_EInterPFilter
 {
   AL_INTERP_REGULAR,
   AL_INTERP_SMOOTH,

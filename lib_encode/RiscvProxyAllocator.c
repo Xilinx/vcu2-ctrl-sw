@@ -35,14 +35,12 @@ static int RiscvProxyAllocToFd(AL_TAllocator* pAllocator)
   return pRiscvAllocator->fd;
 }
 
-static bool RiscvProxyDestroy(AL_TAllocator* pAllocator)
+static void RiscvProxyDestroy(AL_TAllocator* pAllocator)
 {
   AL_TRiscvProxyAllocator* pRiscvAllocator;
 
   pRiscvAllocator = container_of(pAllocator, AL_TRiscvProxyAllocator, dmaAllocator);
   Rtos_Free(pRiscvAllocator);
-
-  return true;
 }
 
 static AL_HANDLE RiscvProxyAlloc(AL_TAllocator* pAllocator, size_t zSize)
@@ -98,7 +96,7 @@ static AL_HANDLE RiscvProxyAllocNamed(AL_TAllocator* pAllocator, size_t zSize, c
   return RiscvProxyAlloc(pAllocator, zSize);
 }
 
-static const AL_AllocatorVtable s_RiscvProxyAllocatorVtable =
+static AL_TAllocatorVTable const s_RiscvProxyAllocatorVtable =
 {
   .pfnDestroy = RiscvProxyDestroy,
   .pfnAlloc = RiscvProxyAlloc,

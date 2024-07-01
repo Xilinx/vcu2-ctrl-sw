@@ -19,6 +19,8 @@ typedef struct
   int32_t iPOC; /*!< Picture Order Count */
   int32_t iRefAPOC;
   int32_t iRefBPOC;
+  uint8_t uRefIdx;
+  AL_EPicStruct ePicStruct;
 }AL_TRefParam;
 
 typedef struct
@@ -30,12 +32,6 @@ typedef struct
 
   uint8_t uNumRefIdxL0;
   uint8_t uNumRefIdxL1;
-
-  uint8_t uRefIdxA;
-  uint8_t uRefIdxB;
-
-  AL_EPicStruct ePicStructA;
-  AL_EPicStruct ePicStructB;
 
   bool bMergeLTL0; /*!< RefIdx0 L0 Picture Marking */
   bool bMergeLTL1; /*!< RefIdx0 L1 Picture Marking */

@@ -40,7 +40,7 @@ CompFrameReader::CompFrameReader(std::ifstream& sRecFileName, std::ifstream& sMa
   ParseResolutions();
 }
 
-void CompFrameReader::ParseVersion()
+void CompFrameReader::ParseVersion(void)
 {
   ParseValue(m_mapFile, m_uVersion);
 
@@ -48,7 +48,7 @@ void CompFrameReader::ParseVersion()
     throw runtime_error(std::regex_replace(ErrorMessageVersion, std::regex("<version>"), to_string(m_uVersion)));
 }
 
-AL_TPicFormat CompFrameReader::ParsePicFormat()
+AL_TPicFormat CompFrameReader::ParsePicFormat(void)
 {
   TFourCC tFourCC;
   ParseValue(m_mapFile, tFourCC);
@@ -60,7 +60,7 @@ AL_TPicFormat CompFrameReader::ParsePicFormat()
   return tPicFormat;
 }
 
-void CompFrameReader::ParseHeader()
+void CompFrameReader::ParseHeader(void)
 {
   if(m_uVersion < 3)
     m_tCompFrameHeader.tPicFormat = ParsePicFormat();
@@ -69,7 +69,7 @@ void CompFrameReader::ParseHeader()
   ParseValue(m_mapFile, m_tCompFrameHeader.uCompMode);
 }
 
-void CompFrameReader::ParseResolutions()
+void CompFrameReader::ParseResolutions(void)
 {
   TResolutionInfos tResInfo;
 
@@ -245,7 +245,7 @@ CompFrameReader::CompFrameReadResult CompFrameReader::GoTo(uint32_t uResIdx, uin
   return m_readResult;
 }
 
-uint32_t CompFrameReader::GetCurFrameIdx()
+uint32_t CompFrameReader::GetCurFrameIdx(void)
 {
   uint32_t uFrameCnt = m_uCurrentResFrameIdx;
 
@@ -264,7 +264,7 @@ void CompFrameReader::ParseBuffer(std::ifstream& m_stream, uint8_t* pBuf, size_t
     throw std::runtime_error(ErrorMessageCorrupted);
 }
 
-CompFrameReader::CompFrameReadResult CompFrameReader::GetNextStatus()
+CompFrameReader::CompFrameReadResult CompFrameReader::GetNextStatus(void)
 {
   return m_readResult;
 }

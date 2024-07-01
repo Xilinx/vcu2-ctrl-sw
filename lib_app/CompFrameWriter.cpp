@@ -29,7 +29,7 @@ CompFrameWriter::CompFrameWriter(std::shared_ptr<std::ostream> recFile, std::sha
 }
 
 /****************************************************************************/
-CompFrameWriter::~CompFrameWriter()
+CompFrameWriter::~CompFrameWriter(void)
 {
   m_mapFile->flush();
 }
@@ -43,7 +43,7 @@ void CompFrameWriter::WriteHeader(uint8_t uBitDepth)
 }
 
 /****************************************************************************/
-void CompFrameWriter::WriteResolutionChangePointers()
+void CompFrameWriter::WriteResolutionChangePointers(void)
 {
   std::streampos tNewResolutionChangePointer = m_mapFile->tellp();
 
@@ -60,14 +60,14 @@ void CompFrameWriter::WriteResolutionChangePointers()
 }
 
 /****************************************************************************/
-void CompFrameWriter::WriteResolutionChangePointer()
+void CompFrameWriter::WriteResolutionChangePointer(void)
 {
   m_mapFile->seekp(m_tResolutionPointerPos);
   WriteValue(m_mapFile, m_uResolutionFrameCnt);
 }
 
 /****************************************************************************/
-void CompFrameWriter::DimInTileMapCalculus()
+void CompFrameWriter::DimInTileMapCalculus(void)
 {
   static const uint32_t MIN_HEIGHT_ROUNDING = 8;
 

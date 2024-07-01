@@ -108,18 +108,19 @@ AL_HANDLE alignedAlloc(AL_TAllocator* pAllocator, char const* pBufName, uint32_t
 #define AL_COMPIL_FLAGS ""
 #endif
 
-void DisplayBuildInfo()
+void DisplayBuildInfo(void)
 {
   BuildInfoDisplay displayBuildInfo {
-    SCM_REV, SCM_BRANCH, AL_CONFIGURE_COMMANDLINE, AL_COMPIL_FLAGS, DELIVERY_BUILD_NUMBER, DELIVERY_SCM_REV, DELIVERY_DATE
+    SCM_REV_SW, SCM_BRANCH, AL_CONFIGURE_COMMANDLINE, AL_COMPIL_FLAGS, DELIVERY_BUILD_NUMBER, DELIVERY_SCM_REV, DELIVERY_DATE
   };
-  displayBuildInfo.displayFeatures = [=]()
+  displayBuildInfo.displayFeatures = [=](void)
                                      {
                                      };
+
   displayBuildInfo();
 }
 
-void DisplayVersionInfo()
+void DisplayVersionInfo(void)
 {
   DisplayVersionInfo(AL_ENCODER_COMPANY,
                      AL_ENCODER_PRODUCT_NAME,
@@ -341,8 +342,11 @@ void ParseCommandLine(int argc, char** argv, ConfigFile& cfg, CfgParser& cfgPars
                 string { ")" }, "enum");
 
   int outputBitdepth = -1;
-  opt.addInt("--out-bitdepth", &outputBitdepth, "Specifies bitdepth of output stream (8, 10, 12)");
-  opt.addInt("--out-bitdepth", &outputBitdepth, "Specifies bitdepth of output stream (8 : 10)");
+  opt.addInt("--out-bitdepth", &outputBitdepth, string { "Specifies bitdepth of output stream (8" } +
+             string { ", 10" } +
+             string { ", 12" } +
+             string { ")" });
+
   opt.addInt("--num-slices", &cfg.Settings.tChParam[0].uNumSlices, "Specifies the number of slices to use");
   opt.addFlag("--slicelat", &cfg.Settings.tChParam[0].bSubframeLatency, "Enable subframe latency");
   opt.addFlag("--framelat", &cfg.Settings.tChParam[0].bSubframeLatency, "Disable subframe latency", false);
@@ -544,7 +548,8 @@ void SetMoreDefaults(ConfigFile& cfg)
 
     if(AL_GetPicFormat(FileInfo.FourCC, &tOutPicFormat))
     {
-      tOutPicFormat.eChromaMode = AL_GET_CHROMA_MODE(Settings.tChParam[0].ePicFormat);
+      if(tOutPicFormat.eComponentOrder != AL_COMPONENT_ORDER_RGB && tOutPicFormat.eComponentOrder != AL_COMPONENT_ORDER_BGR)
+        tOutPicFormat.eChromaMode = AL_GET_CHROMA_MODE(Settings.tChParam[0].ePicFormat);
       tOutPicFormat.ePlaneMode = tOutPicFormat.eChromaMode == AL_CHROMA_MONO ? AL_PLANE_MODE_MONOPLANE : tOutPicFormat.ePlaneMode;
       tOutPicFormat.uBitDepth = AL_GET_BITDEPTH(Settings.tChParam[0].ePicFormat);
       RecFourCC = AL_GetFourCC(tOutPicFormat);
@@ -587,7 +592,7 @@ bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuffer, un
 
 shared_ptr<AL_TBuffer> ReadSourceFrame(BaseBufPool* pBufPool, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, uint8_t uSrcBitDepth, IConvSrc* hConv)
 {
-  shared_ptr<AL_TBuffer> sourceBuffer(pBufPool->GetBuffer(), &AL_Buffer_Unref);
+  shared_ptr<AL_TBuffer> sourceBuffer = pBufPool->GetSharedBuffer();
 
   if(sourceBuffer == nullptr)
     throw runtime_error("sourceBuffer must exist");
@@ -667,7 +672,7 @@ static bool isLastPict(int iPictCount, int iMaxPict)
   return (iPictCount >= iMaxPict) && (iMaxPict != -1);
 }
 
-static shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int iPictCount, unique_ptr<FrameReader> const& frameReader, TYUVFileInfo const& FileInfo, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam, ConfigFile const& cfg, IConvSrc* pSrcConv)
+static shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int iPictCount, unique_ptr<FrameReader> const& frameReader, AL_TYUVFileInfo const& FileInfo, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam, ConfigFile const& cfg, IConvSrc* pSrcConv)
 {
   shared_ptr<AL_TBuffer> frame;
 
@@ -704,8 +709,6 @@ AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
     throw runtime_error("Unsupported source format.");
   }
 }
-
-#include "lib_app/WrapLogger.h"
 
 /*****************************************************************************/
 static bool InitQpBufPool(BufPool& pool, AL_TEncSettings& Settings, AL_TEncChanParam& tChParam, int frameBuffersCount, AL_TAllocator* pAllocator)
@@ -878,9 +881,9 @@ struct LayerResources
 
   bool SendInput(ConfigFile& cfg, IFrameSink* firstSink, void* pTraceHook);
 
-  bool sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount);
+  bool sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount);
 
-  unique_ptr<FrameReader> InitializeFrameReader(ConfigFile& cfg, ifstream& YuvFile, string sYuvFileName, ifstream& MapFile, string sMapFileName, TYUVFileInfo& FileInfo);
+  unique_ptr<FrameReader> InitializeFrameReader(ConfigFile& cfg, ifstream& YuvFile, string sYuvFileName, ifstream& MapFile, string sMapFileName, AL_TYUVFileInfo& FileInfo);
 
   void ChangeInput(ConfigFile& cfg, int iInputIdx, AL_HEncoder hEnc);
 
@@ -1029,7 +1032,7 @@ void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc
 
   for(int i = 0; i < (int)StreamBufPool.GetNumBuf(); ++i)
   {
-    AL_TBuffer* pStream = StreamBufPool.GetBuffer(AL_BUF_MODE_NONBLOCK);
+    std::shared_ptr<AL_TBuffer> pStream = StreamBufPool.GetSharedBuffer(AL_BUF_MODE_NONBLOCK);
 
     if(pStream == nullptr)
       throw runtime_error("pStream must exist");
@@ -1049,10 +1052,8 @@ void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc
       if(AL_TwoPassMngr_HasLookAhead(cfg.Settings) && i < iStreamNum)
         hEnc = encFirstPassLA->hEnc;
 
-      bRet = AL_Encoder_PutStreamBuffer(hEnc, pStream);
+      bRet = AL_Encoder_PutStreamBuffer(hEnc, pStream.get());
     }
-
-    AL_Buffer_Unref(pStream);
 
     if(!bRet)
       throw std::runtime_error("bRet must be true");
@@ -1072,7 +1073,7 @@ bool LayerResources::SendInput(ConfigFile& cfg, IFrameSink* firstSink, void* pTr
   return sendInputFileTo(frameReader, SrcBufPool, SrcYuv.get(), cfg, layerInputs[iInputIdx].FileInfo, pSrcConv.get(), firstSink, iPictCount, iReadCount);
 }
 
-bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount)
+bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount)
 {
   if(AL_IS_ERROR_CODE(GetEncoderLastError()))
   {
@@ -1091,7 +1092,7 @@ bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMa
   return true;
 }
 
-unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& cfg, ifstream& YuvFile, string sYuvFileName, ifstream& MapFile, string sMapFileName, TYUVFileInfo& FileInfo)
+unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& cfg, ifstream& YuvFile, string sYuvFileName, ifstream& MapFile, string sMapFileName, AL_TYUVFileInfo& FileInfo)
 {
   (void)(MapFile);
 
@@ -1151,12 +1152,12 @@ void SafeChannelMain(ConfigFile& cfg, CIpDevice* pIpDevice, CIpDeviceParam& para
 
   /* null if not supported */
   void* pTraceHook {};
-
   unique_ptr<EncoderSink> enc;
   unique_ptr<EncoderLookAheadSink> encFirstPassLA;
 
   auto pAllocator = pIpDevice->GetAllocator();
   auto pScheduler = pIpDevice->GetScheduler();
+
   auto ctx = pIpDevice->GetCtx();
 
   AL_EVENT hFinished = Rtos_CreateEvent(false);
@@ -1370,8 +1371,6 @@ void SafeMain(int argc, char* argv[])
 
   if(AL_Lib_Encoder_Init(eArch) != AL_SUCCESS)
     throw runtime_error("Can't setup encode library");
-
-  Logger logger(RunInfo.logsFile);
 
   CIpDeviceParam param;
   param.iSchedulerType = RunInfo.iSchedulerType;

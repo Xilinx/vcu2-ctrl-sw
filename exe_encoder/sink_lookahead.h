@@ -56,7 +56,7 @@ struct EncoderLookAheadSink : IFrameSink
     m_maxpicCount = cfg.RunInfo.iMaxPict;
   }
 
-  ~EncoderLookAheadSink()
+  ~EncoderLookAheadSink(void)
   {
     AL_Encoder_Destroy(hEnc);
     Rtos_DeleteEvent(EOSFinished);
@@ -217,7 +217,7 @@ private:
     ++iNumFrameEnded;
   }
 
-  AL_TBuffer* GetSrcBuffer()
+  AL_TBuffer* GetSrcBuffer(void)
   {
     AL_TBuffer* pSrc = lookAheadMngr.m_fifo.front();
     lookAheadMngr.m_fifo.pop_front();

@@ -262,7 +262,7 @@ bool SubAllocator_Init(AL_TSubAllocator* pAllocator, AL_VADDR pVirtualAddr, AL_P
   pBuf[2] = END_LNK;
   pBuf[zChunksAvailable + 1] = 0;
 
-  static const AL_AllocatorVtable vtable =
+  static AL_TAllocatorVTable const vtable =
   {
     NULL,
     &SubAllocator_Alloc,

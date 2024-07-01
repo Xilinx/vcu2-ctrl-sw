@@ -24,7 +24,7 @@ static void Usage(CommandLineParser const& opt, char* ExeName)
 }
 
 /******************************************************************************/
-static AL_TDecSettings GetDefaultDecSettings()
+static AL_TDecSettings GetDefaultDecSettings(void)
 {
   AL_TDecSettings settings {};
   AL_DecSettings_SetDefaults(&settings);
@@ -33,7 +33,7 @@ static AL_TDecSettings GetDefaultDecSettings()
 }
 
 /******************************************************************************/
-Config::Config()
+Config::Config(void)
 {
   tDecSettings = GetDefaultDecSettings();
 
@@ -380,13 +380,6 @@ static std::string GetFrameBufferFormatOptDesc(bool bSecondOutput = false)
 }
 
 /******************************************************************************/
-/* duplicated from Utils.h as we can't take these from inside the libraries */
-static inline int RoundUp(int iVal, int iRnd)
-{
-  return (iVal + iRnd - 1) / iRnd * iRnd;
-}
-
-/******************************************************************************/
 static std::string toStringPathsSet(std::set<std::string> paths)
 {
   std::string out;
@@ -546,8 +539,6 @@ Config ParseCommandLine(int argc, char* argv[])
 
   opt.addString("--md5", &config.md5File, "Filename to the output MD5 of the YUV file");
 
-  opt.addString("--log", &config.logsFile, "A file where logged events will be dumped");
-
   opt.startSection("Misc");
   opt.addOption("--color", [&](string)
   {
@@ -563,6 +554,7 @@ Config ParseCommandLine(int argc, char* argv[])
   opt.addInt("--verbosity", &g_Verbosity, "Choose the verbosity level (-q is equivalent to --verbosity 0)");
 
   opt.startDeprecatedSection();
+
   opt.addFlag("--lowref,-lowref", &config.tDecSettings.eDpbMode,
               "Use --no-reordering instead",
               AL_DPB_NO_REORDERING);

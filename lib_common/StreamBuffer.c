@@ -21,12 +21,12 @@ static int GetOneLCUPCMSize(AL_EChromaMode eChromaMode, uint8_t uLog2MaxCuSize, 
 }
 
 /****************************************************************************/
-int GetPCMSize(uint32_t uNumLCU, uint8_t uLog2MaxCuSize, AL_EChromaMode eChromaMode, uint8_t uBitDepth, bool bIntermediateBuffer)
+int32_t GetPCMSize(int32_t iNumLCU, uint8_t uLog2MaxCuSize, AL_EChromaMode eChromaMode, uint8_t uBitDepth, bool bIntermediateBuffer)
 {
   (void)bIntermediateBuffer;
 
   // Sample cost
-  int iLCUSize = GetOneLCUPCMSize(eChromaMode, uLog2MaxCuSize, uBitDepth);
+  int32_t iLCUSize = GetOneLCUPCMSize(eChromaMode, uLog2MaxCuSize, uBitDepth);
 
   if(bIntermediateBuffer)
   {
@@ -37,7 +37,7 @@ int GetPCMSize(uint32_t uNumLCU, uint8_t uLog2MaxCuSize, AL_EChromaMode eChromaM
   // Rounding because of potential tiling
   iLCUSize = RoundUp(iLCUSize, HW_IP_BURST_ALIGNMENT);
 
-  return uNumLCU * iLCUSize;
+  return iNumLCU * iLCUSize;
 }
 
 /****************************************************************************/

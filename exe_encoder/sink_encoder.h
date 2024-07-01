@@ -84,7 +84,7 @@ public:
     this->mode = mode;
   }
 
-  ~QPBuffers()
+  ~QPBuffers(void)
   {
 
     for(auto roiCtx = mQPLayerRoiCtxs.begin(); roiCtx != mQPLayerRoiCtxs.end(); roiCtx++)
@@ -250,7 +250,7 @@ private:
 
 static AL_ERR g_EncoderLastError = AL_SUCCESS;
 
-AL_ERR GetEncoderLastError()
+AL_ERR GetEncoderLastError(void)
 {
   return g_EncoderLastError;
 }
@@ -330,7 +330,7 @@ struct EncoderSink : IFrameSink
     AL_Encoder_SetHDRSEIs(hEnc, &tHDRSEIs);
   }
 
-  ~EncoderSink()
+  ~EncoderSink(void)
   {
     LogInfo("%d pictures encoded. Average FrameRate = %.4f Fps\n",
             m_input_picCount[0], (m_input_picCount[0] * 1000.0) / (m_EndTime - m_StartTime));
@@ -423,7 +423,7 @@ private:
   AL_TAllocator* pAllocator;
   AL_TEncSettings const* pSettings;
 
-  void CheckErrorAndThrow()
+  void CheckErrorAndThrow(void)
   {
     AL_ERR eErr = AL_Encoder_GetLastError(hEnc);
     throw std::runtime_error(AL_IS_ERROR_CODE(eErr) ? AL_Codec_ErrorToString(eErr) : "Failed");
@@ -518,7 +518,7 @@ private:
     return AL_SUCCESS;
   }
 
-  void CloseOutputs()
+  void CloseOutputs(void)
   {
     m_EndTime = GetPerfTime();
     m_done();

@@ -31,6 +31,14 @@ typedef union
   AL_64U uVersion; /*!< Version */
 }AL_TDecSchedulerVersion;
 
+/*************************************************************************//*!
+   \brief Scheduler Log information structure
+*****************************************************************************/
+typedef struct
+{
+  bool bEnable;
+}AL_TDecSchedulerLog;
+
 /****************************************************************************/
 typedef enum
 {
@@ -38,5 +46,6 @@ typedef enum
   AL_DEC_SCHEDULER_CORE, /*!< reference: AL_TDecSchedulerCore */
   AL_DEC_SCHEDULER_SCD_TRACE_CALLBACK, /*!< reference: AL_TDecSchedulerTraceCallback */
   AL_DEC_SCHEDULER_CHANNEL_TRACE_CALLBACK, /*!< reference: AL_TDecSchedulerTraceCallback */
+  AL_DEC_SCHEDULER_LOG, /*!< reference: AL_TDecSchedulerLog */
   AL_DEC_SCHEDULER_MAX_ENUM,
 }AL_EDecSchedulerInfo;

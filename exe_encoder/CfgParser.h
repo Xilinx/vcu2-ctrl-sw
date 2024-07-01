@@ -60,7 +60,7 @@ typedef AL_INTROSPECT (category = "debug") struct tConfigYUVInput
   std::string sMapFileName;
 
   // \brief Information relative to the YUV input file
-  TYUVFileInfo FileInfo;
+  AL_TYUVFileInfo FileInfo;
 
   // \brief Folder where qp tables files are located, if load qp enabled.
   std::string sQPTablesFolder;
@@ -137,7 +137,7 @@ AL_INTROSPECT(category = "debug") struct ConfigFile
 
 struct Temporary
 {
-  Temporary()
+  Temporary(void)
   {
   }
 

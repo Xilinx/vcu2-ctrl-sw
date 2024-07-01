@@ -5,6 +5,4 @@
 
 #include "lib_encode/I_EncArch.h"
 
-extern AL_IEncArch encHost;
-
 AL_IEncArch* LibEncodeRiscvGet(void);

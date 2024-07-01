@@ -18,7 +18,7 @@
 *****************************************************************************/
 // Add new plane at the bottom of the appropriate list
 
-typedef enum
+typedef enum AL_EPlaneId
 {
   AL_PLANE_Y,
   AL_PLANE_U,

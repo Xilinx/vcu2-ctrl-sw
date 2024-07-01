@@ -7,7 +7,7 @@
 
 typedef struct
 {
-  AL_ITimerVtable const* vtable;
+  AL_TTimerVTable const* vtable;
   AL_HANDLE handle;
   AL_TAllocator* allocator;
 }AL_SoftwareTimer;
@@ -26,7 +26,7 @@ static void deinit(AL_ITimer* timer)
   AL_Allocator_Free(((AL_SoftwareTimer*)timer)->allocator, ((AL_SoftwareTimer*)timer)->handle);
 }
 
-static AL_ITimerVtable const SoftwareTimerVtable =
+static AL_TTimerVTable const SoftwareTimerVtable =
 {
   &getSoftwareTime,
   &deinit,

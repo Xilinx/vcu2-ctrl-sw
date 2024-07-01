@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#include "FbcMapSize.h"
+#include "lib_common/FbcMapSize.h"
 #include "Utils.h"
 #include "lib_assert/al_assert.h"
 

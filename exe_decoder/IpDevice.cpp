@@ -39,7 +39,7 @@ extern "C"
 #include "lib_decode/LibDecoderRiscv.h"
 }
 
-void CIpDevice::ConfigureRiscv()
+void CIpDevice::ConfigureRiscv(void)
 {
   m_pScheduler = nullptr;
   m_ctx = AL_Riscv_Decode_CreateCtx(this->m_tSelectedDevice.c_str());
@@ -54,7 +54,7 @@ void CIpDevice::ConfigureRiscv()
     throw runtime_error("Can't find dma allocator");
 }
 
-CIpDevice::~CIpDevice()
+CIpDevice::~CIpDevice(void)
 {
   if(m_pScheduler)
     AL_IDecScheduler_Destroy(m_pScheduler);
@@ -87,7 +87,7 @@ CIpDevice::CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, st
   throw runtime_error("No support for this scheduling type");
 }
 
-AL_EDeviceType CIpDevice::GetDeviceType()
+AL_EDeviceType CIpDevice::GetDeviceType(void)
 {
   return this->m_eDeviceType;
 }

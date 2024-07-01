@@ -53,7 +53,7 @@ static bool DecodeHeader(AL_TDecCtx* pCtx, TCircBuffer* pBufStream, AL_TDecJpegP
   if(eMarker != SOI_MARKER)
     return false;
 
-  int iOffset = pCtx->iNumFrmBlk1 % MAX_STACK_SIZE;
+  int iOffset = pCtx->iNumFrmBlk1 % AL_DEC_SW_MAX_STACK_SIZE;
   bool bRet = AL_JPEG_ParseHeaders(pJP, &rp, &pCtx->QuantBuffer[iOffset], &pCtx->HuffmanBuffer[iOffset], &pCtx->MinMaxBuf[iOffset]);
 
   if(bRet)
@@ -117,7 +117,7 @@ static void FillAddrs(AL_TDecCtx* pCtx, AL_TJpegBufferAddrs* pAddr)
   pAddr->uAvailSize = pBufStream->iAvailSize;
   pAddr->pStream = pBufStream->tMD.uPhysicalAddr;
   pAddr->uStreamSize = pBufStream->tMD.uSize;
-  int iOffset = pCtx->iNumFrmBlk1 % MAX_STACK_SIZE;
+  int iOffset = pCtx->iNumFrmBlk1 % AL_DEC_SW_MAX_STACK_SIZE;
   pAddr->pHuff = pCtx->HuffmanBuffer[iOffset].tMD.uPhysicalAddr;
   pAddr->pQuantTab = pCtx->QuantBuffer[iOffset].tMD.uPhysicalAddr;
   pAddr->pMinMaxTab = pCtx->MinMaxBuf[iOffset].tMD.uPhysicalAddr;
@@ -186,8 +186,6 @@ bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
       pCtx->tInitialStreamSettings = tCurStreamSettings;
     }
 
-    AL_TStreamSettings const* pStreamSettings = &pCtx->tCurrentStreamSettings;
-
     pCtx->bIsFirstSPSChecked = true;
 
     if(!initChannel(pCtx))
@@ -200,11 +198,9 @@ bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
         pCtx->pChanParam->uNumCore,
         pCtx->eDpbMode,
         pCtx->pChanParam->eFBStorageMode,
-        pStreamSettings->iBitDepth,
         pCtx->iStackSize,
         0,
         pCtx->pChanParam->bUseEarlyCallback,
-        pCtx->pInternalFrameBufAllocator,
         { 0, 0 },
       };
 
