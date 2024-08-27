@@ -3,10 +3,13 @@
 
 #pragma once
 
-#include "sink_encoder.h"
-
+#include "gmv.h"
 #include <memory>
 #include <stdexcept>
+#include <cassert>
+#include "CfgParser.h"
+#include "lib_app/Sink.h"
+#include "TwoPassMngr.h"
 
 /*
 ** Special EncoderSink structure, used for encoding the first pass
@@ -18,14 +21,54 @@
 */
 struct EncoderLookAheadSink : IFrameSink
 {
-  EncoderLookAheadSink(ConfigFile const& cfg, EncoderSink* pBaseSink, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
+
+  explicit EncoderLookAheadSink(ConfigFile const& cfg
+                                , AL_RiscV_Ctx ctx
+                                , AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName),
     EncCmd(CmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
     lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection)
   {
-    (void)pBaseSink;
+    assert(ctx);
+    BitstreamOutput.reset(new NullFrameSink);
+    RecOutput.reset(new NullFrameSink);
 
+    AL_CB_EndEncoding onEndEncoding = { &EncoderLookAheadSink::EndEncoding, this };
+    cfgLA = cfg;
+    AL_TwoPassMngr_SetPass1Settings(cfgLA.Settings);
+
+    AL_Settings_CheckCoherency(&cfgLA.Settings, &cfgLA.Settings.tChParam[0], cfgLA.MainInput.FileInfo.FourCC, NULL);
+
+    qpBuffers.Configure(&cfgLA.Settings, cfgLA.RunInfo.eGenerateQpMode);
+
+    AL_ERR errorCode = AL_Encoder_CreateWithCtx(&hEnc, ctx, pAllocator, &cfgLA.Settings, onEndEncoding);
+
+    if(errorCode)
+      throw codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
+
+    commandsSender.reset(new CommandsSender(hEnc));
+    m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
+
+    bEnableFirstPassSceneChangeDetection = false;
+    bEnableFirstPassSceneChangeDetection = cfg.Settings.bEnableFirstPassSceneChangeDetection;
+    EOSFinished = Rtos_CreateEvent(false);
+    FifoFlushFinished = Rtos_CreateEvent(false);
+    iNumLayer = cfg.Settings.NumLayer;
+
+    iNumFrameEnded = 0;
+
+    m_maxpicCount = cfg.RunInfo.iMaxPict;
+  }
+
+  explicit EncoderLookAheadSink(ConfigFile const& cfg
+                                , AL_IEncScheduler* pScheduler
+                                , AL_TAllocator* pAllocator) :
+    CmdFile(cfg.sCmdFileName),
+    EncCmd(CmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
+    Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
+    lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection)
+  {
     BitstreamOutput.reset(new NullFrameSink);
     RecOutput.reset(new NullFrameSink);
 
@@ -126,10 +169,10 @@ private:
   int m_pictureType = -1;
   std::ifstream CmdFile;
   CEncCmdMngr EncCmd;
-  GMV Gmv;
   ConfigFile cfgLA;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;
+  GMV Gmv;
   LookAheadMngr lookAheadMngr;
   bool bEnableFirstPassSceneChangeDetection;
   AL_EVENT EOSFinished;

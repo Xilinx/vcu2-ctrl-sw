@@ -52,12 +52,11 @@ public:
 
   CompFrameReader(std::ifstream& iRecFile, std::ifstream& iMapFile, bool bLoopFrames);
 
-  TCompFrameHeader GetHeader() const;
+  TCompFrameHeader const& GetCurrentHeader() const;
+  TCompFrameResolution const& GetCurrentResolution() const;
 
   CompFrameReadResult GetNextStatus();
   CompFrameReadResult GoTo(uint32_t uFrameIdx);
-  TCompFrameResolution GetCurrentResolution() const;
-  AL_EChromaMode GetCurrentChromaMode() const;
   bool ReadFrame(uint8_t* pBufY, size_t bufYSize, uint8_t* pBufC1, size_t bufC1Size, uint8_t* pBufC2, size_t bufC2Size, uint8_t* pBufMapY, size_t bufMapYSize, uint8_t* pBufMapC1, size_t bufMapC1Size, uint8_t* pBufMapC2, size_t bufMapC2Size);
   bool ReadFrame(AL_TBuffer* pFrameBuffer);
   void ReadComponent(uint8_t* pBuf, size_t bufSize, uint8_t* pBufMap, size_t bufMapSize, bool bChroma);
@@ -104,7 +103,10 @@ private:
   void ComputeBufferSizes(TResolutionInfos& tResInfo);
 
   CompFrameReadResult GoTo(uint32_t uResIdx, uint32_t uResFrameIdx);
-  uint32_t GetCurFrameIdx();
+  uint32_t GetCurrentFrameIdx();
+  AL_EChromaMode GetCurrentChromaMode() const;
+  uint8_t GetCurrentBitDepth() const;
+  uint8_t GetCurrentStorageMode() const;
 
   uint32_t GetNumChromaPlane(TResolutionInfos const &) const;
   uint32_t GetSizePicRec(const TResolutionInfos& tResInfo) const;
@@ -121,19 +123,16 @@ private:
   static const std::string ChromaModeNotHandled;
   static const std::string InvalidResolution;
   static const std::string InvalidChromaMode;
+  static const std::string InvalidBitDepth;
+  static const std::string InvalidStorageMode;
 };
 
-inline CompFrameReader::TCompFrameResolution CompFrameReader::GetCurrentResolution() const
+inline CompFrameReader::TCompFrameResolution const & CompFrameReader::GetCurrentResolution() const
 {
   return m_vResolutions[m_uCurrentResIdx].tRes;
 }
 
-inline AL_EChromaMode CompFrameReader::GetCurrentChromaMode() const
-{
-  return m_vResolutions[m_uCurrentResIdx].tHead.tPicFormat.eChromaMode;
-}
-
-inline CompFrameReader::TCompFrameHeader CompFrameReader::GetHeader() const
+inline CompFrameReader::TCompFrameHeader const & CompFrameReader::GetCurrentHeader() const
 {
   return m_vResolutions[m_uCurrentResIdx].tHead;
 }

@@ -10,11 +10,13 @@ typedef struct AL_TSubAllocator
   AL_TAllocator base;
 
   size_t* pBaseVirtualAddr;
-  size_t zBasePhysicalAddr;
+  AL_PADDR uBasePhysicalAddr;
   size_t zBaseSize;
 
   size_t zFirstFreeChunk;
   size_t zMaxFreeChunk;
+
+  size_t zAlignment;
 }AL_TSubAllocator;
 
 bool SubAllocator_Init(AL_TSubAllocator* pAllocator, AL_VADDR VirtualAddr, AL_PADDR PhysicalAddr, int alignmentInBytes, size_t zSize);

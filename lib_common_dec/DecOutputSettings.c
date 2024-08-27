@@ -9,3 +9,4 @@ void SetDefaultDecOutputSettings(AL_TDecOutputSettings* pDecOutputSettings)
   pDecOutputSettings->tPicFormat = GetDefaultPicFormat();
   pDecOutputSettings->bCustomFormat = false;
 }
+

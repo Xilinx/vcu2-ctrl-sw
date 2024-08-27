@@ -75,7 +75,7 @@ CIpDevice::CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, st
   (void)param;
   this->m_eDeviceType = eDeviceType;
 
-  if(m_eDeviceType == AL_DEVICE_TYPE_EMBEDDED)
+  if(m_eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
   {
     if(this->m_tDevices.size() != 1)
       throw runtime_error("Embedded device doesn't support multi devices");

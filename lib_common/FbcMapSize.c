@@ -3,7 +3,6 @@
 
 #include "lib_common/FbcMapSize.h"
 #include "Utils.h"
-#include "lib_assert/al_assert.h"
 
 static AL_TDimension getTileDimension(AL_EFbStorageMode eFBStorageMode, uint8_t uBitdepth)
 {
@@ -20,7 +19,7 @@ static AL_TDimension getTileDimension(AL_EFbStorageMode eFBStorageMode, uint8_t 
     };
 
   default:
-    AL_Assert(false);
+    Rtos_Assert(false);
     return (AL_TDimension) {
              32, 4
     };

@@ -43,8 +43,8 @@ static AL_TBuffer* CreateBuffer(AL_TDecFramePool* pCtx, AL_TAllocator* pAllocato
 
 bool AL_DecFramePool_Alloc(AL_TDecFramePool* pCtx, AL_TAllocator* pAllocator, AL_TDimension tDim, AL_TPicFormat tPicFormat, uint8_t uFrameNum)
 {
-  AL_Assert(uFrameNum <= MAX_FRAME_POOL_SIZE);
-  AL_Assert(pCtx->uFrameNum == 0);
+  Rtos_Assert(uFrameNum <= MAX_FRAME_POOL_SIZE);
+  Rtos_Assert(pCtx->uFrameNum == 0);
 
   TFourCC tFourCC = AL_GetFourCC(tPicFormat);
 
@@ -93,7 +93,7 @@ void AL_DecFramePool_Deinit(AL_TDecFramePool* pCtx)
     uDestroyCnt++;
   }
 
-  AL_Assert(uDestroyCnt == pCtx->uFrameNum);
+  Rtos_Assert(uDestroyCnt == pCtx->uFrameNum);
 
   AL_DecFramePool_ClearPool(pCtx);
 }
@@ -117,14 +117,14 @@ AL_TBuffer* AL_DecFramePool_Get(AL_TDecFramePool* pCtx)
 static void AL_DecFramePool_OnRefCntNull(AL_TBuffer* pBuf)
 {
   AL_TDecFramePool* pCtx = (AL_TDecFramePool*)AL_Buffer_GetUserData(pBuf);
-  AL_Assert(pCtx != NULL);
+  Rtos_Assert(pCtx != NULL);
 
   uint8_t uCurFrame = 0;
 
   while(uCurFrame < pCtx->uFrameNum && pCtx->tPoolElems[uCurFrame].pFrameBuf != pBuf)
     uCurFrame++;
 
-  AL_Assert(uCurFrame < pCtx->uFrameNum);
+  Rtos_Assert(uCurFrame < pCtx->uFrameNum);
   AL_TDecFramePoolElem* pElem = &pCtx->tPoolElems[uCurFrame];
 
   pElem->uNext = INVALID_POOL_ID;

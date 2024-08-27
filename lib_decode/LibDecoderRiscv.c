@@ -13,6 +13,7 @@
 #include "lib_common/BufferAPIInternal.h"
 #include "lib_common/PicFormat.h"
 #include "lib_common_dec/DecBuffersInternal.h"
+#include "lib_common_dec/DecOutputSettingsInternal.h"
 #include "lib_common/RiscvDmaAllocator.h"
 #include "lib_common/BufferStreamMeta.h"
 #include "lib_common/DisplayInfoMeta.h"
@@ -231,12 +232,12 @@ static void handleEvtDisplay(struct msg_interface_evt_display* evt)
   if(pDisplayedFrame)
   {
     pMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(pDisplayedFrame, AL_META_TYPE_PIXMAP);
-    assert(pMeta);
+    Rtos_Assert(pMeta);
     pMeta->tDim = evt->tDim;
     pMeta->tFourCC = evt->tFourCC;
 
     pRiscvMeta = (AL_TRiscvMetaData*)AL_Buffer_GetMetaData(pDisplayedFrame, AL_META_TYPE_RISCV);
-    assert(pRiscvMeta);
+    Rtos_Assert(pRiscvMeta);
     pRiscvMeta->decodedError = evt->decodedError;
 
     pDispMeta = (AL_TDisplayInfoMetaData*)AL_Buffer_GetMetaData(pDisplayedFrame, AL_META_TYPE_DISPLAY_INFO);
@@ -399,7 +400,7 @@ static void* pollerThread(void* arg)
       handleEvtDestroyMarker(event.event);
       break;
     default:
-      assert(0);
+      Rtos_Assert(false);
     }
   }
 
@@ -489,7 +490,7 @@ static void AL_Decoder_Destroy_Riscv(AL_HDecoder hDec)
 }
 
 /*****************************************************************************/
-static void AL_Decoder_SetParam_Riscv(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bForceCleanBuffers, bool bShouldPrintFrameDelimiter)
+static void AL_Decoder_SetParam_Riscv(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bShouldPrintFrameDelimiter)
 {
   struct msg_interface_setparam_req_full req;
   AL_HDecoderWrapper* pWrapper = hDec;
@@ -502,7 +503,7 @@ static void AL_Decoder_SetParam_Riscv(AL_HDecoder hDec, const char* sPrefix, int
 
   req.hdr.type = MSG_INTERFACE_TYPE_SETPARAM_REQ;
   req.req.hDec = pWrapper->hDec;
-  req.req.bForceCleanBuffers = bForceCleanBuffers;
+  req.req.bForceCleanBuffers = AL_CLEAN_BUFFERS;
 
   CMD_MARSHALL(cmd_reply, req, msg_interface_setparam);
   ioctl(pWrapper->pCtx->fd, CODEC_FW_CMD_REPLY, &cmd_reply);
@@ -745,7 +746,7 @@ static AL_ERR AL_Decoder_GetFrameError_Riscv(AL_HDecoder hDec, const AL_TBuffer*
     return AL_Decoder_GetLastError_Riscv(hDec);
 
   pRiscvMeta = (AL_TRiscvMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_RISCV);
-  assert(pRiscvMeta);
+  Rtos_Assert(pRiscvMeta);
 
   return pRiscvMeta->decodedError;
 }

@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include <cassert>
 #include "lib_app/timing.h"
 #include "lib_app/Sink.h"
 #include "QPGenerator.h"
 #include "EncCmdMngr.h"
 #include "CommandsSender.h"
 #include "HDRParser.h"
+#include "gmv.h"
 
 #include "TwoPassMngr.h"
 
@@ -115,7 +117,7 @@ private:
     // set QpBuf memory to 0 for traces
     std::vector<AL_TBuffer*> qpBufs;
 
-    while(auto curQp = qpLayerInfo.bufPool->GetBuffer(AL_BUF_MODE_NONBLOCK))
+    while(auto curQp = qpLayerInfo.bufPool->GetBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK))
     {
       qpBufs.push_back(curQp);
       AL_Buffer_MemSet(curQp, 0);
@@ -213,41 +215,6 @@ private:
   std::map<int, AL_TRoiMngrCtx*> mQPLayerRoiCtxs;
 };
 
-class GMV
-{
-public:
-  GMV(std::string sGMVFileName, unsigned int iFirstFrame = 0)
-  {
-    if(sGMVFileName.empty())
-      return;
-
-    OpenInput(m_input, sGMVFileName, false);
-    m_iFirstFrame = iFirstFrame;
-
-    while(iFirstFrame--)
-      ReadNextFrameMV(m_input, m_iNextGMV_x, m_iNextGMV_y);
-
-    m_iNextFrame = ReadNextFrameMV(m_input, m_iNextGMV_x, m_iNextGMV_y);
-  }
-
-  void notify(AL_HEncoder hEnc)
-  {
-    if(!m_input.is_open())
-      return;
-
-    if(m_iNextFrame != -1)
-      AL_Encoder_NotifyGMV(hEnc, m_iNextFrame - m_iFirstFrame, m_iNextGMV_x, m_iNextGMV_y);
-    m_iNextFrame = ReadNextFrameMV(m_input, m_iNextGMV_x, m_iNextGMV_y);
-  }
-
-private:
-  std::ifstream m_input;
-  int m_iFirstFrame;
-  int m_iNextFrame;
-  int m_iNextGMV_x;
-  int m_iNextGMV_y;
-};
-
 static AL_ERR g_EncoderLastError = AL_SUCCESS;
 
 AL_ERR GetEncoderLastError(void)
@@ -269,9 +236,52 @@ struct safe_ifstream
 
 struct EncoderSink : IFrameSink
 {
-  EncoderSink(ConfigFile const& cfg, AL_IEncScheduler* pScheduler
-              , AL_RiscV_Ctx ctx
-              , AL_TAllocator* pAllocator) :
+  explicit EncoderSink(ConfigFile const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
+    CmdFile(cfg.sCmdFileName, false),
+    EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT), m_cfg(cfg),
+    Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
+    twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
+                cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
+    pAllocator{pAllocator},
+    pSettings{&cfg.Settings}
+  {
+    assert(ctx);
+    AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
+
+    qpBuffers.Configure(&cfg.Settings, cfg.RunInfo.eGenerateQpMode);
+
+    AL_ERR errorCode = AL_Encoder_CreateWithCtx(&hEnc, ctx, this->pAllocator, &cfg.Settings, onEncoding);
+
+    if(AL_IS_ERROR_CODE(errorCode))
+      throw codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
+
+    if(AL_IS_WARNING_CODE(errorCode))
+      LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
+
+    commandsSender.reset(new CommandsSender(hEnc));
+
+    for(int i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
+      RecOutput[i].reset(new NullFrameSink);
+
+    for(int i = 0; i < MAX_NUM_BITSTREAM_OUTPUT; i++)
+      BitstreamOutput[i].reset(new NullFrameSink);
+
+    for(int i = 0; i < MAX_NUM_LAYER; i++)
+      m_input_picCount[i] = 0;
+
+    m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
+
+    if(!cfg.sHDRFileName.empty())
+    {
+      hdrParser.reset(new HDRParser(cfg.sHDRFileName));
+      ReadHDR(0);
+    }
+
+    iPendingStreamCnt = 1;
+
+  }
+
+  explicit EncoderSink(ConfigFile const& cfg, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT), m_cfg(cfg),
     Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
@@ -284,12 +294,7 @@ struct EncoderSink : IFrameSink
 
     qpBuffers.Configure(&cfg.Settings, cfg.RunInfo.eGenerateQpMode);
 
-    AL_ERR errorCode;
-
-    if(ctx)
-      errorCode = AL_Encoder_CreateWithCtx(&hEnc, ctx, pAllocator, &cfg.Settings, onEncoding);
-    else
-    errorCode = AL_Encoder_Create(&hEnc, pScheduler, pAllocator, &cfg.Settings, onEncoding);
+    AL_ERR errorCode = AL_Encoder_Create(&hEnc, pScheduler, this->pAllocator, &cfg.Settings, onEncoding);
 
     if(AL_IS_ERROR_CODE(errorCode))
       throw codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
@@ -392,7 +397,7 @@ struct EncoderSink : IFrameSink
     std::shared_ptr<AL_TBuffer> QpBufShared(QpBuf, [&](AL_TBuffer* pBuf) { qpBuffers.releaseBuffer(pBuf); });
 
     if(pSettings->hRcPluginDmaContext != NULL)
-      RCPlugin_SetNextFrameQP(pSettings, pAllocator);
+      RCPlugin_SetNextFrameQP(pSettings, this->pAllocator);
 
     if(!AL_Encoder_Process(hEnc, Src, QpBuf))
       CheckErrorAndThrow();

@@ -284,7 +284,7 @@ DECLARE_FULL_EVENT(msg_interface_evt_end_encoding);
 struct msg_interface_evt_end_encoding_with_stat {
   struct msg_interface_evt_end_encoding end_encoding;
   bool bFilled;
-  AL_RateCtrl_Statistics stats;
+  AL_TRateCtrl_Statistics stats;
 };
 DECLARE_FULL_EVENT(msg_interface_evt_end_encoding_with_stat);
 

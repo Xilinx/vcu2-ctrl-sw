@@ -288,9 +288,9 @@ static void unmarshall_struct_msg_interface_evt_end_encoding(struct msg_interfac
 static int get_size_struct_msg_interface_evt_end_encoding_full(void);
 static void marshall_struct_msg_interface_evt_end_encoding_full(struct msg_interface_evt_end_encoding_full *in, void (*write_cb)(int, void *, void *), void *arg);
 static void unmarshall_struct_msg_interface_evt_end_encoding_full(struct msg_interface_evt_end_encoding_full *in, void (*read_cb)(int, void *, void *), void *arg);
-static int get_size_struct_al_t_RateCtrl_Statistics(void);
-static void marshall_struct_al_t_RateCtrl_Statistics(struct al_t_RateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg);
-static void unmarshall_struct_al_t_RateCtrl_Statistics(struct al_t_RateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg);
+static int get_size_struct_AL_TRateCtrl_Statistics(void);
+static void marshall_struct_AL_TRateCtrl_Statistics(struct AL_TRateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg);
+static void unmarshall_struct_AL_TRateCtrl_Statistics(struct AL_TRateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg);
 static int get_size_struct_msg_interface_evt_end_encoding_with_stat(void);
 static void marshall_struct_msg_interface_evt_end_encoding_with_stat(struct msg_interface_evt_end_encoding_with_stat *in, void (*write_cb)(int, void *, void *), void *arg);
 static void unmarshall_struct_msg_interface_evt_end_encoding_with_stat(struct msg_interface_evt_end_encoding_with_stat *in, void (*read_cb)(int, void *, void *), void *arg);
@@ -546,9 +546,9 @@ static void unmarshall_AL_ESectionFlags(AL_ESectionFlags *in, void (*read_cb)(in
 static int get_size_AL_TStreamSection(void);
 static void marshall_AL_TStreamSection(AL_TStreamSection *in, void (*write_cb)(int, void *, void *), void *arg);
 static void unmarshall_AL_TStreamSection(AL_TStreamSection *in, void (*read_cb)(int, void *, void *), void *arg);
-static int get_size_AL_RateCtrl_Statistics(void);
-static void marshall_AL_RateCtrl_Statistics(AL_RateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg);
-static void unmarshall_AL_RateCtrl_Statistics(AL_RateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg);
+static int get_size_AL_TRateCtrl_Statistics(void);
+static void marshall_AL_TRateCtrl_Statistics(AL_TRateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg);
+static void unmarshall_AL_TRateCtrl_Statistics(AL_TRateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg);
 
 static int get_size_struct_msg_interface_header(void)
 {
@@ -1170,8 +1170,8 @@ static int get_size_struct_AL_TEncChanParam(void)
 	res += get_size_uint16_t();
 	res += get_size_uint16_t();
 	res += get_size_uint16_t();
-	res += get_size__Bool();
 	res += get_size_uint8_t();
+	res += get_size__Bool();
 	res += get_size__Bool();
 	res += get_size_AL_EStartCodeBytesAlignedMode();
 	res += get_size_AL_TAutoQPCtrl();
@@ -1257,8 +1257,8 @@ static void marshall_struct_AL_TEncChanParam(struct AL_TEncChanParam *in, void (
 	marshall_uint16_t(&in->uOutputCropHeight, write_cb, arg);
 	marshall_uint16_t(&in->uOutputCropPosX, write_cb, arg);
 	marshall_uint16_t(&in->uOutputCropPosY, write_cb, arg);
-	marshall__Bool(&in->bSrcSync, write_cb, arg);
 	marshall_uint8_t(&in->uSrcSyncChanID, write_cb, arg);
+	marshall__Bool(&in->bSrcSync, write_cb, arg);
 	marshall__Bool(&in->bUseUniformSliceType, write_cb, arg);
 	marshall_AL_EStartCodeBytesAlignedMode(&in->eStartCodeBytesAligned, write_cb, arg);
 	marshall_AL_TAutoQPCtrl(&in->sUserAutoQPValues, write_cb, arg);
@@ -1342,8 +1342,8 @@ static void unmarshall_struct_AL_TEncChanParam(struct AL_TEncChanParam *in, void
 	unmarshall_uint16_t(&in->uOutputCropHeight, read_cb, arg);
 	unmarshall_uint16_t(&in->uOutputCropPosX, read_cb, arg);
 	unmarshall_uint16_t(&in->uOutputCropPosY, read_cb, arg);
-	unmarshall__Bool(&in->bSrcSync, read_cb, arg);
 	unmarshall_uint8_t(&in->uSrcSyncChanID, read_cb, arg);
+	unmarshall__Bool(&in->bSrcSync, read_cb, arg);
 	unmarshall__Bool(&in->bUseUniformSliceType, read_cb, arg);
 	unmarshall_AL_EStartCodeBytesAlignedMode(&in->eStartCodeBytesAligned, read_cb, arg);
 	unmarshall_AL_TAutoQPCtrl(&in->sUserAutoQPValues, read_cb, arg);
@@ -3174,7 +3174,7 @@ static void unmarshall_struct_msg_interface_evt_end_encoding_full(struct msg_int
 	unmarshall_struct_msg_interface_header(&in->hdr, read_cb, arg);
 	unmarshall_struct_msg_interface_evt_end_encoding(&in->event, read_cb, arg);
 }
-static int get_size_struct_al_t_RateCtrl_Statistics(void)
+static int get_size_struct_AL_TRateCtrl_Statistics(void)
 {
 	int res = 0;
 
@@ -3192,7 +3192,7 @@ static int get_size_struct_al_t_RateCtrl_Statistics(void)
 
 	return res;
 }
-static void marshall_struct_al_t_RateCtrl_Statistics(struct al_t_RateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg)
+static void marshall_struct_AL_TRateCtrl_Statistics(struct AL_TRateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg)
 {
 	marshall_uint32_t(&in->uNumLCUs, write_cb, arg);
 	marshall_uint32_t(&in->uNumBytes, write_cb, arg);
@@ -3206,7 +3206,7 @@ static void marshall_struct_al_t_RateCtrl_Statistics(struct al_t_RateCtrl_Statis
 	marshall_int16_t(&in->uMinQP, write_cb, arg);
 	marshall_int16_t(&in->uMaxQP, write_cb, arg);
 }
-static void unmarshall_struct_al_t_RateCtrl_Statistics(struct al_t_RateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg)
+static void unmarshall_struct_AL_TRateCtrl_Statistics(struct AL_TRateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg)
 {
 	unmarshall_uint32_t(&in->uNumLCUs, read_cb, arg);
 	unmarshall_uint32_t(&in->uNumBytes, read_cb, arg);
@@ -3226,7 +3226,7 @@ static int get_size_struct_msg_interface_evt_end_encoding_with_stat(void)
 
 	res += get_size_struct_msg_interface_evt_end_encoding();
 	res += get_size__Bool();
-	res += get_size_AL_RateCtrl_Statistics();
+	res += get_size_AL_TRateCtrl_Statistics();
 
 	return res;
 }
@@ -3234,13 +3234,13 @@ static void marshall_struct_msg_interface_evt_end_encoding_with_stat(struct msg_
 {
 	marshall_struct_msg_interface_evt_end_encoding(&in->end_encoding, write_cb, arg);
 	marshall__Bool(&in->bFilled, write_cb, arg);
-	marshall_AL_RateCtrl_Statistics(&in->stats, write_cb, arg);
+	marshall_AL_TRateCtrl_Statistics(&in->stats, write_cb, arg);
 }
 static void unmarshall_struct_msg_interface_evt_end_encoding_with_stat(struct msg_interface_evt_end_encoding_with_stat *in, void (*read_cb)(int, void *, void *), void *arg)
 {
 	unmarshall_struct_msg_interface_evt_end_encoding(&in->end_encoding, read_cb, arg);
 	unmarshall__Bool(&in->bFilled, read_cb, arg);
-	unmarshall_AL_RateCtrl_Statistics(&in->stats, read_cb, arg);
+	unmarshall_AL_TRateCtrl_Statistics(&in->stats, read_cb, arg);
 }
 static int get_size_struct_msg_interface_evt_end_encoding_with_stat_full(void)
 {
@@ -4268,17 +4268,17 @@ static void unmarshall_AL_TStreamSection(AL_TStreamSection *in, void (*read_cb)(
 {
 	unmarshall_struct_AL_TStreamSection((struct AL_TStreamSection *) in, read_cb, arg);
 }
-static int get_size_AL_RateCtrl_Statistics(void)
+static int get_size_AL_TRateCtrl_Statistics(void)
 {
-	return get_size_struct_al_t_RateCtrl_Statistics();
+	return get_size_struct_AL_TRateCtrl_Statistics();
 }
-static void marshall_AL_RateCtrl_Statistics(AL_RateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg)
+static void marshall_AL_TRateCtrl_Statistics(AL_TRateCtrl_Statistics *in, void (*write_cb)(int, void *, void *), void *arg)
 {
-	marshall_struct_al_t_RateCtrl_Statistics((struct al_t_RateCtrl_Statistics *) in, write_cb, arg);
+	marshall_struct_AL_TRateCtrl_Statistics((struct AL_TRateCtrl_Statistics *) in, write_cb, arg);
 }
-static void unmarshall_AL_RateCtrl_Statistics(AL_RateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg)
+static void unmarshall_AL_TRateCtrl_Statistics(AL_TRateCtrl_Statistics *in, void (*read_cb)(int, void *, void *), void *arg)
 {
-	unmarshall_struct_al_t_RateCtrl_Statistics((struct al_t_RateCtrl_Statistics *) in, read_cb, arg);
+	unmarshall_struct_AL_TRateCtrl_Statistics((struct AL_TRateCtrl_Statistics *) in, read_cb, arg);
 }
 
 int enc_msg_interface_header_get_size(void)

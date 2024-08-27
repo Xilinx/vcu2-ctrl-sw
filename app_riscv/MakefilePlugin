@@ -1,0 +1,40 @@
+include riscv_config.mk
+include constants.mk
+
+# You need to specify the position of SOFT here
+SOFT?=..
+
+# Soft configuration
+include $(SOFT)/config.mk
+
+ifneq ($(ENABLE_RATE_CTRL_PLUGIN),1)
+  $(error RATE_CTRL_PLUGIN is not enabled)
+endif
+
+all: true_all
+
+SOFT?=..
+
+include base.mk
+include $(PLUGIN)/plugin.mk
+
+INCLUDES+=-I$(SOFT)
+INCLUDES+=-I$(SOFT)/include
+
+ifeq ($(GCC),1)
+LINK_SCRIPT=-Wl,--script=plugin_c906_gcc.lds
+else
+LINK_SCRIPT=-Wl,--script=plugin_bk5_clang.lds
+endif
+
+$(BIN)/%.elf:
+	@echo "LD $@"
+	$(Q)$(CC) $(CFLAGS) -o "$@" $^ $(LIBS) $(LDFLAGS) -nostartfiles $(LINK_SCRIPT)
+	@echo "SIZE $@"
+	$(Q)$(SIZE) $@
+
+$(BIN)/%.bin: $(BIN)/%.elf
+	$(Q) $(OBJCOPY) -O binary  "$<" "$@"
+	@echo "BIN $@"
+
+true_all: $(TARGETS)

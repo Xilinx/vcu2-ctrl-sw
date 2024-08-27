@@ -3,7 +3,6 @@
 
 #include "lib_app/console.h"
 
-#define NOMINMAX 1
 #include <windows.h>
 #include <io.h>
 #include <stdio.h>

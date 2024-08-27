@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 
 #include "DPBConstraints.h"
-#include "lib_assert/al_assert.h"
 
 /****************************************************************************/
 uint8_t AL_DPBConstraint_GetMaxRef_DefaultGop(const AL_TGopParam* pGopParam, AL_ECodec eCodec)
@@ -160,7 +159,7 @@ uint8_t AL_DPBConstraint_GetMaxRef(const AL_TGopParam* pGopParam, AL_ECodec eCod
     uMaxRef = AL_DPBConstraint_GetMaxRef_LowDelayGop(pGopParam, eCodec);
   else
   {
-    AL_Assert(0);
+    Rtos_Assert(false);
   }
 
   if(eVideoMode != AL_VM_PROGRESSIVE)

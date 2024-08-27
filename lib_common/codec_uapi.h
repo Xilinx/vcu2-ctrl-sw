@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 struct codec_cmd_reply {
 	uint16_t req_size;
 	uint16_t reply_size;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/FourCC.h"
-#include "lib_assert/al_assert.h"
+#include "lib_rtos/lib_rtos.h"
 
 /* FOURCC from chars */
 #define FOURCC2(A, B, C, D) ((TFourCC)(((uint32_t)((A))) \
@@ -170,7 +170,7 @@ bool AL_GetPicFormat(TFourCC tFourCC, AL_TPicFormat* tPicFormat)
     }
   }
 
-  AL_Assert(0 && "Unknown fourCC");
+  Rtos_Assert(false && "Unknown fourCC");
 
   return false;
 }
@@ -206,7 +206,7 @@ TFourCC AL_GetFourCC(AL_TPicFormat tPictFormat)
       return pMapping->tfourCC;
   }
 
-  AL_Assert(0 && "Unknown picture format");
+  Rtos_Assert(false && "Unknown picture format");
 
   return 0;
 }

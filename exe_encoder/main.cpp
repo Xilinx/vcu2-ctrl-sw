@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
+#include "lib_common/PicFormat.h"
 #include <climits>
 #include <cstdarg>
 #include <cstdlib>
@@ -80,6 +81,20 @@ static bool g_MultiChunk = false;
 
 using namespace std;
 
+static std::string toStringPathsSet(std::vector<std::string> paths)
+{
+  std::string out;
+
+  for(auto const& path : paths)
+  {
+    if(out.length() != 0)
+      out += string(", ");
+    out += path;
+  }
+
+  return out;
+}
+
 /*****************************************************************************/
 AL_HANDLE alignedAlloc(AL_TAllocator* pAllocator, char const* pBufName, uint32_t uSize, uint32_t uAlign, uint32_t* uAllocatedSize, uint32_t* uAlignmentOffset)
 {
@@ -139,14 +154,14 @@ void SetDefaults(ConfigFile& cfg)
   cfg.MainInput.FileInfo.FrameRate = 0;
   cfg.MainInput.FileInfo.PictHeight = 0;
   cfg.MainInput.FileInfo.PictWidth = 0;
-  cfg.RunInfo.encDevicePath = { ENCODER_DEVICES };
-  cfg.RunInfo.iDeviceType = AL_DEVICE_TYPE_EMBEDDED;
-  cfg.RunInfo.iSchedulerType = AL_SCHEDULER_TYPE_CPU;
+  cfg.RunInfo.encDevicePaths = ENCODER_DEVICES;
+  cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
+  cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
   cfg.RunInfo.bLoop = false;
   cfg.RunInfo.iMaxPict = INT_MAX; // ALL
   cfg.RunInfo.iFirstPict = 0;
   cfg.RunInfo.iScnChgLookAhead = 3;
-  cfg.RunInfo.ipCtrlMode = AL_IPCTRL_MODE_STANDARD;
+  cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
   cfg.RunInfo.uInputSleepInMilliseconds = 0;
   cfg.strict_mode = false;
   cfg.iForceStreamBufSize = 0;
@@ -357,9 +372,6 @@ void ParseCommandLine(int argc, char** argv, ConfigFile& cfg, CfgParser& cfgPars
   opt.addString("--pass-logfile", &cfg.sTwoPassFileName, "LogFile to transmit dual pass statistics");
   opt.addFlag("--first-pass-scd", &cfg.Settings.bEnableFirstPassSceneChangeDetection, "During first pass, the encoder encode faster by only enabling scene change detection");
 
-  opt.addFlag("--src-sync", &cfg.Settings.tChParam[0].bSrcSync, "Use synchronised source for encoder");
-  opt.addInt("--sync-chan", &cfg.Settings.tChParam[0].uSrcSyncChanID, "Use synchronised source channel ID");
-
   opt.startSection("Rate Control && GOP");
   opt.addCustom("--ratectrl-mode", &cfg.Settings.tChParam[0].tRCParam.eRCMode, createParseRCMode(&cfgParser),
                 "Specifies rate control mode (CONST_QP, CBR, VBR"
@@ -390,9 +402,9 @@ void ParseCommandLine(int argc, char** argv, ConfigFile& cfg, CfgParser& cfgPars
   opt.addInt("--max-picture", &cfg.RunInfo.iMaxPict, "Maximum number of pictures encoded (1,2 .. -1 for ALL)");
   opt.addFlag("--loop", &cfg.RunInfo.bLoop, "Loop at the end of the yuv file");
 
-  opt.addFlag("--embedded", &cfg.RunInfo.iDeviceType, "Force usage of embedded mcu", AL_DEVICE_TYPE_EMBEDDED);
+  opt.addFlag("--embedded", &cfg.RunInfo.eDeviceType, "Force usage of embedded mcu", AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED);
 
-  opt.addFlag("--multi-inst", &cfg.RunInfo.iSchedulerType, "Allow encoding spread on multiple IP instances", AL_SCHEDULER_TYPE_MULTIINST);
+  opt.addFlag("--multi-inst", &cfg.RunInfo.eSchedulerType, "Allow encoding spread on multiple IP instances", AL_ESchedulerType::AL_SCHEDULER_TYPE_MULTIINST);
 
   opt.addInt("--input-sleep", &cfg.RunInfo.uInputSleepInMilliseconds, "Minimum waiting time in milliseconds between each process frame (0 by default)");
 
@@ -412,7 +424,9 @@ void ParseCommandLine(int argc, char** argv, ConfigFile& cfg, CfgParser& cfgPars
   {
     cfg.Settings.tChParam[0].tMCParam.eMCClipMode = stringToMultiChipClipMode(opt.popWord());
   }, "Multi-chip clip options: (Subset of LRTB)", "enum");
-  opt.addString("--device", &cfg.RunInfo.encDevicePath, std::string(std::string("Path of the driver device file used to talk with the IP. Default is: ") + cfg.RunInfo.encDevicePath.c_str()));
+  opt.addOption("--device", [&](string) {
+    cfg.RunInfo.encDevicePaths.push_back(opt.popWord());
+  }, std::string(std::string("Path of the driver device(s) file(s) used to talk with the IP. Default(s) are: ") + toStringPathsSet(cfg.RunInfo.encDevicePaths)));
   opt.startSection("Misc");
 
   opt.addOption("--color", [&](string)
@@ -559,6 +573,17 @@ void SetMoreDefaults(ConfigFile& cfg)
       RecFourCC = FileInfo.FourCC;
     }
   }
+
+  AL_TPicFormat tRecPicFormat;
+
+  if(AL_GetPicFormat(RecFourCC, &tRecPicFormat))
+  {
+    auto& RecFileName = cfg.RecFileName;
+
+    if(!RecFileName.empty())
+      if(tRecPicFormat.eStorageMode != AL_FB_RASTER && !tRecPicFormat.bCompressed)
+        throw runtime_error("Reconstructed storage format can only be tiled if compressed.");
+  }
 }
 
 /*****************************************************************************/
@@ -610,6 +635,15 @@ AL_TPicFormat GetSrcPicFormat(AL_TEncChanParam const& tChParam)
   return AL_EncGetSrcPicFormat(eChromaMode, tChParam.uSrcBitDepth, eSrcMode);
 }
 
+void CheckSrcComp(TFourCC tFileFourCC, TFourCC tSrcFourCC)
+{
+  if(AL_GetBitDepth(tFileFourCC) != AL_GetBitDepth(tSrcFourCC))
+    throw runtime_error("We can't convert BitDepth for compressed source.");
+
+  if(AL_GetChromaMode(tFileFourCC) != AL_GetChromaMode(tSrcFourCC))
+    throw runtime_error("We can't convert ChromaMode for compressed source.");
+}
+
 struct SrcConverterParams
 {
   AL_TDimension tDim;
@@ -627,6 +661,9 @@ unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverte
 
   if(!bIsConversionNeeded)
     return nullptr;
+
+  if(AL_IsCompressed(tSrcFourCC))
+    CheckSrcComp(tSrcConverterParams.tFileFourCC, tSrcFourCC);
 
   // ********** Allocate the YUV buffer to read in the file **********
   pFileReaderYuv = AllocateConversionBuffer(tSrcConverterParams.tDim.iWidth, tSrcConverterParams.tDim.iHeight, tSrcConverterParams.tFileFourCC);
@@ -1032,7 +1069,7 @@ void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc
 
   for(int i = 0; i < (int)StreamBufPool.GetNumBuf(); ++i)
   {
-    std::shared_ptr<AL_TBuffer> pStream = StreamBufPool.GetSharedBuffer(AL_BUF_MODE_NONBLOCK);
+    std::shared_ptr<AL_TBuffer> pStream = StreamBufPool.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
 
     if(pStream == nullptr)
       throw runtime_error("pStream must exist");
@@ -1170,16 +1207,21 @@ void SafeChannelMain(ConfigFile& cfg, CIpDevice* pIpDevice, CIpDeviceParam& para
 
   // --------------------------------------------------------------------------------
   // Create Encoder
-  enc.reset(new EncoderSink(cfg, pScheduler
-                            , ctx
-                            , pAllocator
-                            ));
+
+  if(ctx)
+    enc.reset(new EncoderSink(cfg, ctx, pAllocator));
+  else
+  enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
 
   IFrameSink* firstSink = enc.get();
 
   if(AL_TwoPassMngr_HasLookAhead(cfg.Settings))
   {
-    encFirstPassLA.reset(new EncoderLookAheadSink(cfg, enc.get(), pScheduler, pAllocator));
+
+    if(ctx)
+      encFirstPassLA.reset(new EncoderLookAheadSink(cfg, ctx, pAllocator));
+    else
+    encFirstPassLA.reset(new EncoderLookAheadSink(cfg, pScheduler, pAllocator));
 
     encFirstPassLA->next = firstSink;
     firstSink = encFirstPassLA.get();
@@ -1366,15 +1408,15 @@ void SafeMain(int argc, char* argv[])
 
   auto& RunInfo = cfg.RunInfo;
 
-  if(RunInfo.iDeviceType == AL_DEVICE_TYPE_EMBEDDED)
+  if(RunInfo.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
     eArch = AL_LIB_ENCODER_ARCH_RISCV;
 
   if(AL_Lib_Encoder_Init(eArch) != AL_SUCCESS)
     throw runtime_error("Can't setup encode library");
 
   CIpDeviceParam param;
-  param.iSchedulerType = RunInfo.iSchedulerType;
-  param.iDeviceType = RunInfo.iDeviceType;
+  param.eSchedulerType = RunInfo.eSchedulerType;
+  param.eDeviceType = RunInfo.eDeviceType;
 
   param.pCfgFile = &cfg;
   param.bTrackDma = RunInfo.trackDma;

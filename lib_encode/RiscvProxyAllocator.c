@@ -5,8 +5,8 @@
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <assert.h>
 
+#include "lib_rtos/lib_rtos.h"
 #include "lib_common/RiscvDmaAllocator.h"
 
 #define container_of(ptr, type, member) \
@@ -46,7 +46,7 @@ static void RiscvProxyDestroy(AL_TAllocator* pAllocator)
 static AL_HANDLE RiscvProxyAlloc(AL_TAllocator* pAllocator, size_t zSize)
 {
   /* Should never be called */
-  assert(0);
+  Rtos_Assert(false);
 
   (void)pAllocator;
   (void)zSize;

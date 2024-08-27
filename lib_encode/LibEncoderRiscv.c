@@ -7,6 +7,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
+#include "lib_rtos/lib_rtos.h"
 #include "lib_encode/lib_encoder.h"
 #include "LibEncoderRiscvInternal.h"
 #include "lib_encode/LibEncoderRiscv.h"
@@ -189,7 +190,7 @@ static void copyStreamSections(struct msg_interface_evt_end_encoding* event)
   pStream = (AL_TBuffer*)(intptr_t)event->pStream;
 
   pMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_STREAM);
-  assert(pMeta);
+  Rtos_Assert(pMeta);
 
   pMeta->uNumSection = event->uNumSection;
 
@@ -273,10 +274,10 @@ static void handleEvtEndEncodingCopyStats(struct msg_interface_evt_end_encoding_
   AL_TBuffer* pStream = (AL_TBuffer*)(intptr_t)event->end_encoding.pStream;
   AL_TRateCtrlMetaData* pMeta;
 
-  assert(pStream);
+  Rtos_Assert(pStream);
 
   pMeta = (AL_TRateCtrlMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_RATECTRL);
-  assert(pMeta);
+  Rtos_Assert(pMeta);
 
   pMeta->bFilled = event->bFilled;
   pMeta->tRateCtrlStats = event->stats;
@@ -340,7 +341,7 @@ static void* pollerThread(void* arg)
       handleEvtDestroyMarker(event.event);
       break;
     default:
-      assert(0);
+      Rtos_Assert(false);
     }
   }
 
@@ -619,7 +620,7 @@ static void AL_Encoder_ReleaseRecPicture_Layer(AL_HEncoder hEnc, AL_TRecPic* pRe
   AL_TRiscvMetaData* pMeta;
 
   pMeta = (AL_TRiscvMetaData*)AL_Buffer_GetMetaData(pRecPic->pBuf, AL_META_TYPE_RISCV);
-  assert(pMeta);
+  Rtos_Assert(pMeta);
 
   AL_Encoder_ReleaseRecPicture_Common(pWrapper, pMeta->pRec, &pMeta->recInfo, iLayerID);
 }

@@ -2,13 +2,19 @@
 // SPDX-License-Identifier: MIT
 
 #include "SubAllocator.h"
-#include "lib_assert/al_assert.h"
 
 /*****************************************************************************/
 #define FREE_FLAG ((size_t)((uintptr_t)(1) << (8 * sizeof(size_t) - 1)))
 #define END_LNK ((size_t)(-1))
 /* This is used to differentiate NULL handle from 0 value valid handle */
-#define ALLOC_IS_VALID 4
+#define ALLOC_IS_VALID sizeof(size_t)
+
+#define LNK_PREV 1
+#define LNK_NEXT 2
+#define PRIV_HEADER_SIZE 1
+#define PRIV_FOOTER_SIZE 1
+#define PRIV_SIZE (PRIV_HEADER_SIZE + PRIV_FOOTER_SIZE)
+#define MIN_SIZE 2 // should be big enough to store LinkList of free chunks
 
 /*****************************************************************************/
 static void SubAllocator_InsertFreeChunk(AL_TSubAllocator* pAllocator, size_t zPos, size_t zSize)
@@ -17,44 +23,44 @@ static void SubAllocator_InsertFreeChunk(AL_TSubAllocator* pAllocator, size_t zP
 
   /* Insert new chunk to Free List */
   pBuf[zPos] = zSize | FREE_FLAG;
-  pBuf[zPos + zSize + 1] = zPos;
+  pBuf[zPos + PRIV_HEADER_SIZE + zSize] = zPos;  // Footer
 
   if(pAllocator->zFirstFreeChunk == END_LNK)
   {
     pAllocator->zFirstFreeChunk = zPos;
-    pBuf[zPos + 1] = END_LNK;
-    pBuf[zPos + 2] = END_LNK;
+    pBuf[zPos + LNK_PREV] = END_LNK;
+    pBuf[zPos + LNK_NEXT] = END_LNK;
   }
   else
   {
     size_t zIns = pAllocator->zFirstFreeChunk;
 
-    while(((pBuf[zIns] & ~FREE_FLAG) <= zSize) && pBuf[zIns + 2] != END_LNK)
-      zIns = pBuf[zIns + 2];
+    while(((pBuf[zIns] & ~FREE_FLAG) <= zSize) && pBuf[zIns + LNK_NEXT] != END_LNK)
+      zIns = pBuf[zIns + LNK_NEXT];
 
     if((pBuf[zIns] & ~FREE_FLAG) > zSize)
     {
-      pBuf[zPos + 1] = pBuf[zIns + 1];
-      pBuf[zPos + 2] = zIns;
+      pBuf[zPos + LNK_PREV] = pBuf[zIns + LNK_PREV];
+      pBuf[zPos + LNK_NEXT] = zIns;
 
-      if(pBuf[zIns + 1] != END_LNK)
-        pBuf[pBuf[zIns + 1] + 2] = zPos;
+      if(pBuf[zIns + LNK_PREV] != END_LNK)
+        pBuf[pBuf[zIns + LNK_PREV] + LNK_NEXT] = zPos;
       else
         pAllocator->zFirstFreeChunk = zPos;
-      pBuf[zIns + 1] = zPos;
+      pBuf[zIns + LNK_PREV] = zPos;
     }
     else
     {
-      AL_Assert(pBuf[zIns + 2] == END_LNK);
+      Rtos_Assert(pBuf[zIns + LNK_NEXT] == END_LNK);
 
       /* free bufs are in zSize order, if noone is bigger than us, we should be
        * at the end of the list */
-      if(pBuf[zIns + 2] != END_LNK)
+      if(pBuf[zIns + LNK_NEXT] != END_LNK)
         return;
 
-      pBuf[zPos + 1] = zIns;
-      pBuf[zPos + 2] = END_LNK;
-      pBuf[zIns + 2] = zPos;
+      pBuf[zPos + LNK_PREV] = zIns;
+      pBuf[zPos + LNK_NEXT] = END_LNK;
+      pBuf[zIns + LNK_NEXT] = zPos;
     }
   }
 
@@ -67,17 +73,17 @@ static void SubAllocator_RemoveFreeChunk(AL_TSubAllocator* pAllocator, size_t zP
 {
   size_t* pBuf = (size_t*)pAllocator->pBaseVirtualAddr;
 
-  if(pBuf[zPos + 2] != END_LNK)
-    pBuf[pBuf[zPos + 2] + 1] = pBuf[zPos + 1];
-  else if(pBuf[zPos + 1] != END_LNK)
-    pAllocator->zMaxFreeChunk = pBuf[pBuf[zPos + 1]] & ~FREE_FLAG;
+  if(pBuf[zPos + LNK_NEXT] != END_LNK)
+    pBuf[pBuf[zPos + LNK_NEXT] + LNK_PREV] = pBuf[zPos + LNK_PREV];
+  else if(pBuf[zPos + LNK_PREV] != END_LNK)
+    pAllocator->zMaxFreeChunk = pBuf[pBuf[zPos + LNK_PREV]] & ~FREE_FLAG;
   else
     pAllocator->zMaxFreeChunk = 0;
 
-  if(pBuf[zPos + 1] != END_LNK)
-    pBuf[pBuf[zPos + 1] + 2] = pBuf[zPos + 2];
+  if(pBuf[zPos + LNK_PREV] != END_LNK)
+    pBuf[pBuf[zPos + LNK_PREV] + LNK_NEXT] = pBuf[zPos + LNK_NEXT];
   else
-    pAllocator->zFirstFreeChunk = pBuf[zPos + 2];
+    pAllocator->zFirstFreeChunk = pBuf[zPos + LNK_NEXT];
 }
 
 /*****************************************************************************/
@@ -87,10 +93,15 @@ AL_HANDLE SubAllocator_Alloc(AL_TAllocator* pAllocator, size_t zSize)
     return NULL;
 
   AL_TSubAllocator* pSubAllocator = (AL_TSubAllocator*)pAllocator;
-  size_t zAllocSize = (zSize + sizeof(size_t) - 1) / sizeof(size_t);
+  size_t zAlignment = pSubAllocator->zAlignment;
 
-  if(zAllocSize < 2)
-    zAllocSize = 2;
+  if(zAlignment < sizeof(size_t))
+    zAlignment = sizeof(size_t);
+
+  size_t zAllocSize = (zSize + zAlignment - 1) / sizeof(size_t);
+
+  if(zAllocSize < MIN_SIZE)
+    zAllocSize = MIN_SIZE;
 
   if(zAllocSize > pSubAllocator->zMaxFreeChunk)
     return NULL;
@@ -100,9 +111,9 @@ AL_HANDLE SubAllocator_Alloc(AL_TAllocator* pAllocator, size_t zSize)
   size_t zCur = pSubAllocator->zFirstFreeChunk;
 
   while((pBuf[zCur] & ~FREE_FLAG) < zAllocSize)
-    zCur = pBuf[zCur + 2]; // Next Free Chunk
+    zCur = pBuf[zCur + LNK_NEXT]; // Next Free Chunk
 
-  AL_Assert(pBuf[zCur] & FREE_FLAG);
+  Rtos_Assert(pBuf[zCur] & FREE_FLAG);
 
   /* zCur can be 0 but handle should never be NULL as this is the invalid case */
   AL_HANDLE hBuf = (AL_HANDLE)(zCur + ALLOC_IS_VALID);
@@ -111,7 +122,7 @@ AL_HANDLE SubAllocator_Alloc(AL_TAllocator* pAllocator, size_t zSize)
   size_t zRemSize = (pBuf[zCur] & ~FREE_FLAG) - zAllocSize;
   size_t zNew;
 
-  if(zRemSize < 4)
+  if(zRemSize < (PRIV_SIZE + MIN_SIZE))
   {
     zAllocSize = pBuf[zCur] & ~FREE_FLAG;
     zRemSize = 0;
@@ -119,8 +130,8 @@ AL_HANDLE SubAllocator_Alloc(AL_TAllocator* pAllocator, size_t zSize)
   }
   else
   {
-    zRemSize -= 2;
-    zNew = zCur + zAllocSize + 2;
+    zRemSize -= PRIV_SIZE;
+    zNew = zCur + zAllocSize + PRIV_SIZE;
   }
 
   // Update Free List
@@ -131,7 +142,7 @@ AL_HANDLE SubAllocator_Alloc(AL_TAllocator* pAllocator, size_t zSize)
 
   // Update current size
   pBuf[zCur] = zAllocSize;
-  pBuf[zCur + zAllocSize + 1] = zCur;
+  pBuf[zCur + PRIV_HEADER_SIZE + zAllocSize] = zCur; // Footer
 
   return hBuf;
 }
@@ -146,7 +157,7 @@ bool SubAllocator_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
 
   hBuf = (AL_HANDLE)((size_t)hBuf - ALLOC_IS_VALID);
 
-  AL_Assert((size_t)hBuf <= pSubAllocator->zBaseSize);
+  Rtos_Assert((size_t)hBuf <= pSubAllocator->zBaseSize);
 
   size_t zMaxSize = pSubAllocator->zBaseSize / sizeof(size_t);
 
@@ -155,7 +166,7 @@ bool SubAllocator_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   size_t zNew = (size_t)hBuf;
   size_t zCur = zNew;
 
-  AL_Assert((pBuf[zCur] & FREE_FLAG) == 0);
+  Rtos_Assert((pBuf[zCur] & FREE_FLAG) == 0);
 
   /* Trying to free a non allocated chunk */
   if((pBuf[zCur] & FREE_FLAG) != 0)
@@ -164,8 +175,8 @@ bool SubAllocator_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   size_t zFreeSize = pBuf[zCur] & ~FREE_FLAG;
 
   /* Merge with below chunk */
-  size_t zNext = zCur + zFreeSize + 2;
-  AL_Assert(zNext <= zMaxSize);
+  size_t zNext = zCur + zFreeSize + PRIV_SIZE;
+  Rtos_Assert(zNext <= zMaxSize);
 
   /* if the next chunk is outside the alloc buffer*/
   if(zNext > zMaxSize)
@@ -173,7 +184,7 @@ bool SubAllocator_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
 
   if((zNext < zMaxSize) && (pBuf[zNext] & FREE_FLAG))
   {
-    zFreeSize += (pBuf[zNext] & ~FREE_FLAG) + 2;
+    zFreeSize += (pBuf[zNext] & ~FREE_FLAG) + PRIV_SIZE;
     // remove next from Free list
     SubAllocator_RemoveFreeChunk(pSubAllocator, zNext);
   }
@@ -181,17 +192,17 @@ bool SubAllocator_Free(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   // merge with above chunk
   if(zCur > 0)
   {
-    size_t zPrev = pBuf[zCur - 1];
-    AL_Assert((zCur - zPrev) == (pBuf[zPrev] & ~FREE_FLAG) + 2);
+    size_t zPrev = pBuf[zCur - PRIV_FOOTER_SIZE];
+    Rtos_Assert((zCur - zPrev) == (pBuf[zPrev] & ~FREE_FLAG) + PRIV_SIZE);
 
     /* if size was corrupted */
-    if((zCur - zPrev) != (pBuf[zPrev] & ~FREE_FLAG) + 2)
+    if((zCur - zPrev) != (pBuf[zPrev] & ~FREE_FLAG) + PRIV_SIZE)
       return false;
 
     if((zPrev < zCur) && (pBuf[zPrev] & FREE_FLAG))
     {
       zNew = zPrev;
-      zFreeSize += (pBuf[zPrev] & ~FREE_FLAG) + 2;
+      zFreeSize += (pBuf[zPrev] & ~FREE_FLAG) + PRIV_SIZE;
       // remove previous from Free list
       SubAllocator_RemoveFreeChunk(pSubAllocator, zPrev);
     }
@@ -208,7 +219,9 @@ AL_VADDR SubAllocator_GetVirtualAddr(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   size_t zCur = (size_t)hBuf - ALLOC_IS_VALID;
 
   AL_TSubAllocator* pSubAllocator = (AL_TSubAllocator*)pAllocator;
-  return (AL_VADDR)(((uint32_t*)pSubAllocator->pBaseVirtualAddr) + (zCur + 1));
+  uintptr_t Addr = (uintptr_t)(pSubAllocator->pBaseVirtualAddr + (zCur + PRIV_HEADER_SIZE));
+  uintptr_t Alignment = pSubAllocator->zAlignment - 1;
+  return (AL_VADDR)((Addr + Alignment) & ~Alignment);
 }
 
 /*****************************************************************************/
@@ -217,7 +230,9 @@ AL_PADDR SubAllocator_GetPhysicalAddr(AL_TAllocator* pAllocator, AL_HANDLE hBuf)
   size_t zCur = (size_t)hBuf - ALLOC_IS_VALID;
 
   AL_TSubAllocator* pSubAllocator = (AL_TSubAllocator*)pAllocator;
-  return pSubAllocator->zBasePhysicalAddr + (zCur + 1) * sizeof(size_t);
+  AL_PADDR Addr = pSubAllocator->uBasePhysicalAddr + (zCur + PRIV_HEADER_SIZE) * sizeof(size_t);
+  AL_PADDR Alignment = pSubAllocator->zAlignment - 1;
+  return (AL_PADDR)((Addr + Alignment) & ~Alignment);
 }
 
 /*****************************************************************************/
@@ -233,24 +248,25 @@ bool SubAllocator_Init(AL_TSubAllocator* pAllocator, AL_VADDR pVirtualAddr, AL_P
   if((size_t)pVirtualAddr % sizeof(size_t))
     return false;
 
-  if(uPhysicalAddr % iAlignmentInBytes != 0)
+  /* if the base addresses cannot be aligned the same way*/
+  if((size_t)pVirtualAddr % iAlignmentInBytes != uPhysicalAddr % iAlignmentInBytes)
     return false;
 
   if(!zSize)
     return false;
 
   size_t zChunks = zSize / sizeof(size_t);
-  size_t const zChunksPrivate = 2;
 
-  if(zChunks <= zChunksPrivate)
+  if(zChunks <= PRIV_SIZE)
     return false;
 
-  size_t zChunksAvailable = zChunks - zChunksPrivate;
+  size_t zChunksAvailable = zChunks - PRIV_SIZE;
 
   pAllocator->pBaseVirtualAddr = (size_t*)pVirtualAddr;
-  pAllocator->zBasePhysicalAddr = (size_t)uPhysicalAddr;
+  pAllocator->uBasePhysicalAddr = uPhysicalAddr;
   pAllocator->zBaseSize = zSize;
   pAllocator->zFirstFreeChunk = 0;
+  pAllocator->zAlignment = iAlignmentInBytes;
 
   size_t* pBuf = (size_t*)pAllocator->pBaseVirtualAddr;
 
@@ -258,9 +274,9 @@ bool SubAllocator_Init(AL_TSubAllocator* pAllocator, AL_VADDR pVirtualAddr, AL_P
   pAllocator->zFirstFreeChunk = 0;
 
   pBuf[0] = pAllocator->zMaxFreeChunk | FREE_FLAG;
-  pBuf[1] = END_LNK;
-  pBuf[2] = END_LNK;
-  pBuf[zChunksAvailable + 1] = 0;
+  pBuf[LNK_PREV] = END_LNK;
+  pBuf[LNK_NEXT] = END_LNK;
+  pBuf[PRIV_HEADER_SIZE + zChunksAvailable] = 0;  // Footer
 
   static AL_TAllocatorVTable const vtable =
   {
@@ -285,7 +301,7 @@ bool SubAllocator_Deinit(AL_TSubAllocator* pAllocator)
   if(!pAllocator)
     return false;
 
-  size_t zMaxSize = pAllocator->zBaseSize / sizeof(size_t) - 2;
+  size_t zMaxSize = pAllocator->zBaseSize / sizeof(size_t) - PRIV_SIZE;
 
   if(pAllocator->zMaxFreeChunk != zMaxSize) // Memory leak
     return false;

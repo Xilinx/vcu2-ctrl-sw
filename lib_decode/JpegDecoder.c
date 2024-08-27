@@ -5,7 +5,6 @@
 
 #include "DefaultDecoder.h"
 #include "I_DecoderCtx.h"
-#include "lib_assert/al_assert.h"
 #include "lib_common/PixMapBufferInternal.h"
 #include "lib_common/BufferHandleMeta.h"
 #include "lib_common_dec/DecHardwareConfig.h"
@@ -35,7 +34,7 @@ static bool initChannel(AL_TDecCtx* pCtx)
 }
 
 /*****************************************************************************/
-static bool DecodeHeader(AL_TDecCtx* pCtx, TCircBuffer* pBufStream, AL_TDecJpegParam* pJP)
+static bool DecodeHeader(AL_TDecCtx* pCtx, AL_TCircBuffer* pBufStream, AL_TDecJpegParam* pJP)
 {
   AL_TRbspParser rp;
   InitRbspParser(pBufStream, NULL, 0, false, &rp);
@@ -94,25 +93,25 @@ static void GetRecAddr(AL_TDecCtx* pCtx, AL_TJpegBufferAddrs* pAddr)
   AL_EPlaneId eFirstPlane = tOutputPicFormat.ePlaneMode == AL_PLANE_MODE_INTERLEAVED ? AL_PLANE_YUV : AL_PLANE_Y;
   AL_EPlaneId eFirstChromaPlane = tOutputPicFormat.ePlaneMode == AL_PLANE_MODE_PLANAR ? AL_PLANE_U : AL_PLANE_UV;
 
-  pAddr->uPitch = AL_PixMapBuffer_GetPlanePitch(pRecs->pFrame, eFirstPlane);
-  AL_Assert(pAddr->uPitch != 0);
+  pAddr->tDecBuffers.uPitch = AL_PixMapBuffer_GetPlanePitch(pRecs->pFrame, eFirstPlane);
+  Rtos_Assert(pAddr->tDecBuffers.uPitch != 0);
 
-  pAddr->pRecY = AL_PixMapBuffer_GetPlanePhysicalAddress(pRecs->pFrame, eFirstPlane);
-  pAddr->pRecC1 = 0;
-  pAddr->pRecC2 = 0;
+  pAddr->tDecBuffers.pRecY = AL_PixMapBuffer_GetPlanePhysicalAddress(pRecs->pFrame, eFirstPlane);
+  pAddr->tDecBuffers.pRecC1 = 0;
+  pAddr->tDecBuffers.pRecC2 = 0;
 
   if(pStreamSettings->eChroma != AL_CHROMA_MONO)
-    pAddr->pRecC1 = AL_PixMapBuffer_GetPlanePhysicalAddress(pRecs->pFrame, eFirstChromaPlane);
+    pAddr->tDecBuffers.pRecC1 = AL_PixMapBuffer_GetPlanePhysicalAddress(pRecs->pFrame, eFirstChromaPlane);
 
   if(pStreamSettings->eChroma == AL_CHROMA_4_4_4)
-    pAddr->pRecC2 = AL_PixMapBuffer_GetPlanePhysicalAddress(pRecs->pFrame, AL_PLANE_V);
+    pAddr->tDecBuffers.pRecC2 = AL_PixMapBuffer_GetPlanePhysicalAddress(pRecs->pFrame, AL_PLANE_V);
 
 }
 
 /*****************************************************************************/
 static void FillAddrs(AL_TDecCtx* pCtx, AL_TJpegBufferAddrs* pAddr)
 {
-  TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = &pCtx->Stream;
   pAddr->uOffset = pBufStream->iOffset;
   pAddr->uAvailSize = pBufStream->iAvailSize;
   pAddr->pStream = pBufStream->tMD.uPhysicalAddr;
@@ -125,7 +124,6 @@ static void FillAddrs(AL_TDecCtx* pCtx, AL_TJpegBufferAddrs* pAddr)
   Rtos_FlushCacheMemory(pCtx->HuffmanBuffer[iOffset].tMD.pVirtualAddr, pCtx->HuffmanBuffer[iOffset].tMD.uSize);
   Rtos_FlushCacheMemory(pCtx->QuantBuffer[iOffset].tMD.pVirtualAddr, pCtx->QuantBuffer[iOffset].tMD.uSize);
   Rtos_FlushCacheMemory(pCtx->MinMaxBuf[iOffset].tMD.pVirtualAddr, pCtx->MinMaxBuf[iOffset].tMD.uSize);
-
   GetRecAddr(pCtx, pAddr);
 }
 
@@ -155,7 +153,7 @@ static bool isHeaderParamsCompatibleWithStreamSettings(AL_TDecCtx* pCtx, AL_TDec
 /*****************************************************************************/
 bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
 {
-  TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = &pCtx->Stream;
   AL_TDecJpegParam tJpegParam;
   Rtos_Memset(&tJpegParam, 0, sizeof(tJpegParam));
 
@@ -187,9 +185,6 @@ bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
     }
 
     pCtx->bIsFirstSPSChecked = true;
-
-    if(!initChannel(pCtx))
-      return false;
 
     if(!pCtx->bAreBuffersAllocated)
     {
@@ -228,6 +223,9 @@ bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
     return false;
   }
 
+  if(!initChannel(pCtx))
+    return false;
+
   pCtx->bAreBuffersAllocated = true;
 
   Rtos_GetSemaphore(pCtx->Sem, AL_WAIT_FOREVER);
@@ -261,6 +259,7 @@ bool AL_JPEG_DecodeOneNAL(AL_TDecCtx* pCtx)
   Rtos_ReleaseMutex(pCtx->DecMutex);
 
   AL_PictMngr_Insert(&pCtx->PictMngr, 0, 0, 0, tJpegParam.FrmID, tJpegParam.MvID, 1, SHORT_TERM_REF, 0, 0, 0);
+
   AL_IDecScheduler_DecodeJpeg(pCtx->pScheduler, pCtx->hChannel, &tJpegParam, &tPicBufAddrs);
   pCtx->iNumFrmBlk1++;
   pCtx->uToggle = (pCtx->iNumFrmBlk1 % pCtx->iStackSize);

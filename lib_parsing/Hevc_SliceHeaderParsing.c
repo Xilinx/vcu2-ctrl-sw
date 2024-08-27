@@ -120,7 +120,7 @@ static bool AL_HEVC_sReadWPCoeff(AL_TRbspParser* pRP, AL_THevcSliceHdr* pSlice, 
   return true;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief the pred_weight_table function parses the weighted pred table syntax
          elements from a Slice Header NAL
    \param[in]  pRP    Pointer to NAL buffer
@@ -142,7 +142,7 @@ static bool AL_HEVC_spread_weight_table(AL_TRbspParser* pRP, AL_THevcSliceHdr* p
   return true;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function parses the reordering syntax elements from a Slice
          Header NAL
    \param[in]  pRP             Pointer to NAL buffer

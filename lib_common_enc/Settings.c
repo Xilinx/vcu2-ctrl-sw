@@ -1,18 +1,15 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup Encoder_Settings
-   @{
+   !@{
    \file
  *****************************************************************************/
 
 #include <stdio.h>
 
 #include "lib_rtos/lib_rtos.h"
-#include "lib_assert/al_assert.h"
 #include "lib_common_enc/Settings.h"
 #include "lib_common/ChannelResources.h"
 #include "lib_common/Utils.h"
@@ -33,6 +30,7 @@ static int const HEVC_MIN_CTB_SIZE = 5; // 32x32
 
 static int const AVC_MAX_CU_SIZE = 4; // 16x16
 static int const MIN_CU_SIZE = AL_MIN_SUPPORTED_LCU_SIZE; // 8x8
+static int const LOG2_MIN_QP_TABLE_SIZE = 4; // 16x16
 
 static int LAMBDA_FACTORS[] = { 51, 90, 151, 151, 151, 151 }; // I, P, B(temporal id low to high)
 /***************************************************************************/
@@ -147,7 +145,7 @@ static int AL_sSettings_GetCpbVclFactor(AL_EProfile eProfile)
 /****************************************************************************/
 static int AL_sSettings_GetHbrFactor(AL_EProfile eProfile)
 {
-  AL_Assert(AL_IS_HEVC(eProfile));
+  Rtos_Assert(AL_IS_HEVC(eProfile));
 
   if(AL_GET_PROFILE_CODEC_AND_IDC(eProfile) != AL_PROFILE_HEVC_RExt)
     return 1;
@@ -172,7 +170,7 @@ static uint32_t AL_sSettings_GetMaxCPBSize(AL_TEncChanParam const* pChParam)
   return uCpbSize * iCpbVclFactor;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the minimum level required by the AVC specification
    according to resolution, profile, framerate and bitrate
    \param[in] pSettings pointer to encoder Settings structure
@@ -197,7 +195,7 @@ static uint8_t AL_sSettings_GetMinLevelAVC(AL_TEncChanParam const* pChParam)
   return uLevel;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the minimum level required by the HEVC specification
    according to resolution, profile, framerate, bitrate and tile column number
    \param[in] pSettings pointer to encoder Settings structure
@@ -225,7 +223,7 @@ static uint8_t AL_sSettings_GetMinLevelHEVC(AL_TEncChanParam const* pChParam)
   return uLevel;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the minimum level required by the HEVC specification
    according to resolution, profile, framerate and bitrate
    \param[in] pSettings pointer to encoder Settings structure
@@ -461,7 +459,7 @@ static int const iBetaOffsetAuto = -1;
 /***************************************************************************/
 void AL_Settings_SetDefaults(AL_TEncSettings* pSettings)
 {
-  AL_Assert(pSettings);
+  Rtos_Assert(pSettings);
   Rtos_Memset(pSettings, 0, sizeof(*pSettings));
 
   AL_TEncChanParam* pChan = &pSettings->tChParam[0];
@@ -512,7 +510,7 @@ void AL_Settings_SetDefaults(AL_TEncSettings* pSettings)
   pSettings->eQpTableMode = AL_QP_TABLE_NONE;
 
   pChan->eLdaCtrlMode = AL_AUTO_LDA;
-  AL_Assert(sizeof(pChan->LdaFactors) == sizeof(LAMBDA_FACTORS));
+  Rtos_Assert(sizeof(pChan->LdaFactors) == sizeof(LAMBDA_FACTORS));
   Rtos_Memcpy(pChan->LdaFactors, LAMBDA_FACTORS, sizeof(LAMBDA_FACTORS));
   pChan->iQPTableDepth = 2;
 
@@ -607,19 +605,19 @@ int AL_Settings_CheckValidity(AL_TEncSettings* pSettings, AL_TEncChanParam* pChP
     MSG_ERROR("Invalid parameter: Profile");
   }
 
-  if((AL_GET_BITDEPTH(pChParam->ePicFormat) > 8) && (AL_HWConfig_Enc_GetSupportedBitDepth() < 10))
+  if((AL_GET_BITDEPTH(pChParam->ePicFormat) > 8) && (AL_HWConfig_Enc_GetSupportedBitDepth(pChParam->eProfile) < 10))
   {
     ++err;
     MSG_ERROR("The hardware IP doesn't support 10-bit encoding");
   }
 
-  if((AL_GET_BITDEPTH(pChParam->ePicFormat) > 10) && (AL_HWConfig_Enc_GetSupportedBitDepth() < 12))
+  if((AL_GET_BITDEPTH(pChParam->ePicFormat) > 10) && (AL_HWConfig_Enc_GetSupportedBitDepth(pChParam->eProfile) < 12))
   {
     ++err;
     MSG_ERROR("The hardware IP doesn't support 12-bit encoding");
   }
 
-  if(AL_GET_CHROMA_MODE(pChParam->ePicFormat) > AL_HWConfig_Enc_GetSupportedChromaMode())
+  if(AL_GET_CHROMA_MODE(pChParam->ePicFormat) > AL_HWConfig_Enc_GetSupportedChromaMode(pChParam->eProfile))
   {
 
     if(!(AL_IS_JPEG(pChParam->eProfile) && (AL_GET_CHROMA_MODE(pChParam->ePicFormat) <= AL_CHROMA_4_2_2)))
@@ -1057,7 +1055,7 @@ AL_EProfile getHevcMinimumProfile(int iBitDepth, AL_EChromaMode eChroma)
     case AL_CHROMA_4_2_0: return AL_PROFILE_HEVC_MAIN;
     case AL_CHROMA_4_2_2: return AL_PROFILE_HEVC_MAIN_422;
     case AL_CHROMA_4_4_4: return AL_PROFILE_HEVC_MAIN_444;
-    default: AL_Assert(0);
+    default: Rtos_Assert(false);
     }
 
     break;
@@ -1069,7 +1067,7 @@ AL_EProfile getHevcMinimumProfile(int iBitDepth, AL_EChromaMode eChroma)
     case AL_CHROMA_4_2_0: return AL_PROFILE_HEVC_MAIN10;
     case AL_CHROMA_4_2_2: return AL_PROFILE_HEVC_MAIN_422_10;
     case AL_CHROMA_4_4_4: return AL_PROFILE_HEVC_MAIN_444_10;
-    default: AL_Assert(0);
+    default: Rtos_Assert(false);
     }
 
     break;
@@ -1081,13 +1079,13 @@ AL_EProfile getHevcMinimumProfile(int iBitDepth, AL_EChromaMode eChroma)
     case AL_CHROMA_4_2_0: return AL_PROFILE_HEVC_MAIN12;
     case AL_CHROMA_4_2_2: return AL_PROFILE_HEVC_MAIN_422_12;
     case AL_CHROMA_4_4_4: return AL_PROFILE_HEVC_MAIN_444_12;
-    default: AL_Assert(0);
+    default: Rtos_Assert(false);
     }
 
     break;
 
   default:
-    AL_Assert(0);
+    Rtos_Assert(false);
   }
 
   return AL_PROFILE_HEVC;
@@ -1106,7 +1104,7 @@ AL_EProfile getAvcMinimumProfile(int iBitDepth, AL_EChromaMode eChroma)
     case AL_CHROMA_4_2_0: return AL_PROFILE_AVC_C_BASELINE;
     case AL_CHROMA_4_2_2: return AL_PROFILE_AVC_HIGH_422;
     case AL_CHROMA_4_4_4: return AL_PROFILE_AVC_HIGH_444_PRED;
-    default: AL_Assert(0);
+    default: Rtos_Assert(false);
     }
 
     break;
@@ -1119,7 +1117,7 @@ AL_EProfile getAvcMinimumProfile(int iBitDepth, AL_EChromaMode eChroma)
     case AL_CHROMA_4_2_0: return AL_PROFILE_AVC_HIGH10;
     case AL_CHROMA_4_2_2: return AL_PROFILE_AVC_HIGH_422;
     case AL_CHROMA_4_4_4: return AL_PROFILE_AVC_HIGH_444_PRED;
-    default: AL_Assert(0);
+    default: Rtos_Assert(false);
     }
 
     break;
@@ -1127,10 +1125,10 @@ AL_EProfile getAvcMinimumProfile(int iBitDepth, AL_EChromaMode eChroma)
   case 12:
     return AL_PROFILE_AVC_HIGH_444_PRED;
   default:
-    AL_Assert(0);
+    Rtos_Assert(false);
   }
 
-  AL_Assert(0);
+  Rtos_Assert(false);
 
   return AL_PROFILE_AVC;
 }
@@ -1144,7 +1142,7 @@ static AL_EProfile getMinimumProfile(AL_ECodec eCodec, int iBitDepth, AL_EChroma
   case AL_CODEC_AVC: return getAvcMinimumProfile(iBitDepth, eChromaMode);
   case AL_CODEC_HEVC: return getHevcMinimumProfile(iBitDepth, eChromaMode);
   default:
-    AL_Assert(0);
+    Rtos_Assert(false);
   }
 
   return AL_PROFILE_UNKNOWN;
@@ -1188,7 +1186,7 @@ static void CorrectBitRateParams(AL_TEncChanParam* pChParam, TFourCC tFourCC, in
       AL_EChromaMode eInputChromaMode = AL_GetChromaMode(tFourCC);
       AL_TDimension tDim = { pChParam->uEncWidth, pChParam->uEncHeight };
       uint32_t maxNalSizeInByte = GetPcmVclNalSize(tDim, eInputChromaMode, iBitDepth);
-      uint64_t maxBitRate = 8LL * maxNalSizeInByte * pChParam->tRCParam.uFrameRate;
+      AL_64U maxBitRate = 8uLL * maxNalSizeInByte * pChParam->tRCParam.uFrameRate;
 
       if(pChParam->tRCParam.uTargetBitRate > maxBitRate)
       {
@@ -1204,7 +1202,7 @@ static void CorrectBitRateParams(AL_TEncChanParam* pChParam, TFourCC tFourCC, in
 /***************************************************************************/
 int AL_Settings_CheckCoherency(AL_TEncSettings* pSettings, AL_TEncChanParam* pChParam, TFourCC tFourCC, FILE* pOut)
 {
-  AL_Assert(pSettings);
+  Rtos_Assert(pSettings);
 
   int numIncoherency = 0;
 
@@ -1304,6 +1302,15 @@ int AL_Settings_CheckCoherency(AL_TEncSettings* pSettings, AL_TEncChanParam* pCh
 
   if(bHasQPTables)
   {
+
+    uint8_t uQPTableMinSize = Max(LOG2_MIN_QP_TABLE_SIZE, pChParam->uLog2MinCuSize);
+
+    if(!AL_IS_AUTO_OR_ADAPTIVE_QP_CTRL(pSettings->eQpCtrlMode) && (pChParam->uLog2MaxCuSize - pChParam->uCuQPDeltaDepth) < uQPTableMinSize)
+    {
+      MSG_WARNING("CuQpDeltaDepth is too high!");
+      ++numIncoherency;
+      pChParam->uCuQPDeltaDepth = pChParam->uLog2MaxCuSize - uQPTableMinSize;
+    }
 
     if((pChParam->uLog2MaxCuSize - pChParam->uCuQPDeltaDepth) < pChParam->uLog2MinCuSize)
     {
@@ -1568,7 +1575,7 @@ int AL_Settings_CheckCoherency(AL_TEncSettings* pSettings, AL_TEncChanParam* pCh
   if(pChParam->tGopParam.bEnableLT && pChParam->tGopParam.uFreqLT <= 0)
   {
     pChParam->tGopParam.uFreqLT = pChParam->tGopParam.uGopLength;
-    MSG_WARNING("Setting long term frequency to gop length as long term is enabled");
+    MSG_WARNING("Adjusting long term frequency value as long term is enabled");
     ++numIncoherency;
   }
 
@@ -1625,14 +1632,14 @@ int AL_Settings_CheckCoherency(AL_TEncSettings* pSettings, AL_TEncChanParam* pCh
   {
     if(pChParam->tRCParam.eRCMode != AL_RC_CONST_QP)
     {
-      uint64_t uCPBSize = ((AL_64U)pChParam->tRCParam.uCPBSize * pChParam->tRCParam.uMaxBitRate) / 90000LL;
+      AL_64U uCPBSize = ((AL_64U)pChParam->tRCParam.uCPBSize * pChParam->tRCParam.uMaxBitRate) / 90000uLL;
       uint32_t uMaxCPBSize = AL_sSettings_GetMaxCPBSize(pChParam);
 
       if(uCPBSize > uMaxCPBSize)
       {
         MSG_WARNING("The specified CPBSize is higher than the Max CPBSize allowed for this level and will be adjusted");
         ++numIncoherency;
-        pChParam->tRCParam.uCPBSize = uMaxCPBSize * 90000LL / pChParam->tRCParam.uMaxBitRate;
+        pChParam->tRCParam.uCPBSize = uMaxCPBSize * 90000uLL / pChParam->tRCParam.uMaxBitRate;
       }
     }
   }
@@ -1708,4 +1715,4 @@ int AL_Settings_CheckCoherency(AL_TEncSettings* pSettings, AL_TEncChanParam* pCh
   return numIncoherency;
 }
 
-/*@}*/
+/*!@}*/

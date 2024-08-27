@@ -183,6 +183,10 @@ pack_includes:
 pack_defines:
 	@echo $(PACK_DEFINES)
 
+coverage: true_all
+coverage: CFLAGS+=--coverage
+coverage: LDFLAGS+=-lgcov
+
 true_all: $(TARGETS)
 
 .PHONY: true_all clean all

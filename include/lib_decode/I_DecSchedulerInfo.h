@@ -5,7 +5,7 @@
 
 #include "lib_rtos/types.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Core information structure
 *****************************************************************************/
 typedef struct AL_TIDecSchedulerCore
@@ -17,7 +17,7 @@ typedef struct AL_TIDecSchedulerCore
   int32_t iJpegResource[AL_DEC_NUM_CORE_JPEG];
 }AL_TIDecSchedulerCore;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Version (SemVer) structure
 *****************************************************************************/
 typedef union AL_TIDecSchedulerVersion

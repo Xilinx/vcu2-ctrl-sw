@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_base
-   @{
+   !@{
    \file
  *****************************************************************************/
 // Fourcc.org is not complete for the format definition of yuv
@@ -4574,7 +4572,7 @@ static const sConvFourCCArray ConvMatchArray[] =
   { FOURCC(UYVY), CONV_FOURCC_ARRAY(ConversionUYVYFuncArray) },
 };
 
-typedef union
+union tUnionFourCC
 {
   uint32_t uFourCC;
   struct
@@ -4583,8 +4581,8 @@ typedef union
     uint8_t b;
     uint8_t c;
     uint8_t d;
-  }Value;
-}tUnionFourCC;
+  } Value;
+};
 
 static tConvFourCCFunc GetConversionOutFunction(sConvFourCCArray const* pMatchArray, TFourCC tOutFourCC)
 {
@@ -4662,4 +4660,4 @@ int ConvertPixMapBuffer(AL_TBuffer const* pSrc, AL_TBuffer* pDst)
   return 0;
 }
 
-/*@}*/
+/*!@}*/

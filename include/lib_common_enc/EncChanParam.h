@@ -1,20 +1,19 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup Encoder_Settings
-   @{
+   !@{
    \file
 ******************************************************************************/
 #pragma once
 
-#include <assert.h>
 #include "lib_common/SliceConsts.h"
 #include "lib_common/VideoMode.h"
 #include "lib_common/PicFormat.h"
-#include "lib_rtos/types.h"
+#include "lib_rtos/lib_rtos.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Encoding parameters buffers (EP1, EP2, EP3 and EP4 buffers) sub buffer information
 *****************************************************************************/
 typedef struct AL_TBufInfo
@@ -24,7 +23,7 @@ typedef struct AL_TBufInfo
   size_t Offset; /*!< Offset of the sub buffer inside the EP buffer*/
 }AL_TBufInfo;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Lambda Control Mode
 *****************************************************************************/
 typedef enum AL_ELdaCtrlMode
@@ -51,7 +50,7 @@ static inline bool AL_LdaIsSane(AL_ELdaCtrlMode lda)
   }
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief GDR (Gradual Decoding Refresh) Mode
 *****************************************************************************/
 typedef enum AL_EGdrMode
@@ -63,7 +62,7 @@ typedef enum AL_EGdrMode
   AL_GDR_MAX_ENUM, /* sentinel */
 }AL_EGdrMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Multi chip clip mode
 *****************************************************************************/
 typedef enum AL_EMultiChipClipMode
@@ -76,7 +75,7 @@ typedef enum AL_EMultiChipClipMode
   AL_MC_CLIP_MAX_ENUM,
 }AL_EMultiChipClipMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Parameters for multi chip encoding
 *****************************************************************************/
 typedef AL_INTROSPECT (category = "debug") struct AL_TMultiChipParam
@@ -88,7 +87,7 @@ typedef AL_INTROSPECT (category = "debug") struct AL_TMultiChipParam
   uint16_t uMCPosY;
 }AL_TMultiChipParam;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Picture format enum
 *****************************************************************************/
 typedef enum AL_EPicFormat
@@ -129,34 +128,34 @@ static inline AL_EChromaMode AL_GET_CHROMA_MODE(AL_EPicFormat ePicFormat)
 
 static inline void AL_SET_BITDEPTH_LUMA(AL_EPicFormat* pPicFormat, int iLumaBitDepth)
 {
-  assert(pPicFormat);
-  assert(iLumaBitDepth <= 0xF);
+  Rtos_Assert(pPicFormat);
+  Rtos_Assert(iLumaBitDepth <= 0xF);
   *pPicFormat = (AL_EPicFormat)((*pPicFormat & 0xFFF0) | (iLumaBitDepth & 0x000F));
 }
 
 static inline void AL_SET_BITDEPTH_CHROMA(AL_EPicFormat* pPicFormat, int iChromaBitDepth)
 {
-  assert(pPicFormat);
-  assert(iChromaBitDepth <= 0xF);
+  Rtos_Assert(pPicFormat);
+  Rtos_Assert(iChromaBitDepth <= 0xF);
   *pPicFormat = (AL_EPicFormat)((*pPicFormat & 0xFF0F) | ((iChromaBitDepth << 4) & 0x00F0));
 }
 
 static inline void AL_SET_BITDEPTH(AL_EPicFormat* pPicFormat, int iBitDepth)
 {
-  assert(pPicFormat);
-  assert(iBitDepth <= 0xF);
+  Rtos_Assert(pPicFormat);
+  Rtos_Assert(iBitDepth <= 0xF);
   AL_SET_BITDEPTH_LUMA(pPicFormat, iBitDepth);
   AL_SET_BITDEPTH_CHROMA(pPicFormat, iBitDepth);
 }
 
 static inline void AL_SET_CHROMA_MODE(AL_EPicFormat* pPicFormat, AL_EChromaMode eChromaMode)
 {
-  assert(pPicFormat);
-  assert((int)eChromaMode <= 0xF);
+  Rtos_Assert(pPicFormat);
+  Rtos_Assert((int)eChromaMode <= 0xF);
   *pPicFormat = (AL_EPicFormat)((*pPicFormat & 0xF0FF) | (((int)eChromaMode << 8) & 0x0F00));
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Encoding High level syntax enum
 *****************************************************************************/
 typedef enum AL_EHlsFlag
@@ -186,8 +185,8 @@ static inline uint32_t AL_GET_SPS_LOG2_MAX_POC(uint32_t uHlsParam)
 
 static inline void AL_SET_SPS_LOG2_MAX_POC(uint32_t* pHlsParam, int iLog2MaxPoc)
 {
-  assert(pHlsParam);
-  assert(iLog2MaxPoc <= 16);
+  Rtos_Assert(pHlsParam);
+  Rtos_Assert(iLog2MaxPoc <= 16);
   *pHlsParam = ((*pHlsParam & ~AL_SPS_LOG2_MAX_POC_MASK) | (iLog2MaxPoc - 1));
 }
 
@@ -198,8 +197,8 @@ static inline uint32_t AL_GET_SPS_LOG2_MAX_FRAME_NUM(uint32_t uHlsParam)
 
 static inline void AL_SET_SPS_LOG2_MAX_FRAME_NUM(uint32_t* pHlsParam, int iLog2MaxFrameNum)
 {
-  assert(pHlsParam);
-  assert(iLog2MaxFrameNum < 0xF);
+  Rtos_Assert(pHlsParam);
+  Rtos_Assert(iLog2MaxFrameNum < 0xF);
   *pHlsParam = ((*pHlsParam & ~AL_SPS_LOG2_MAX_FRAME_NUM_MASK) | (iLog2MaxFrameNum << 4));
 }
 
@@ -210,8 +209,8 @@ static inline uint32_t AL_GET_SPS_LOG2_NUM_SHORT_TERM_RPS(uint32_t uHlsParam)
 
 static inline void AL_SET_SPS_LOG2_NUM_SHORT_TERM_RPS(uint32_t* pHlsParam, int iLog2NumShortTermRps)
 {
-  assert(pHlsParam);
-  assert(iLog2NumShortTermRps < 0x3F);
+  Rtos_Assert(pHlsParam);
+  Rtos_Assert(iLog2NumShortTermRps < 0x3F);
   *pHlsParam = ((*pHlsParam & ~AL_SPS_LOG2_NUM_SHORT_TERM_RPS_MASK) | (iLog2NumShortTermRps << 8));
 }
 
@@ -222,8 +221,8 @@ static inline uint32_t AL_GET_SPS_LOG2_NUM_LONG_TERM_RPS(uint32_t uHlsParam)
 
 static inline void AL_SET_SPS_LOG2_NUM_LONG_TERM_RPS(uint32_t* pHlsParam, int iLog2NumLongTermRps)
 {
-  assert(pHlsParam);
-  assert(iLog2NumLongTermRps < 0xFC);
+  Rtos_Assert(pHlsParam);
+  Rtos_Assert(iLog2NumLongTermRps < 0xFC);
   *pHlsParam = ((*pHlsParam & ~AL_SPS_LOG2_NUM_LONG_TERM_RPS_MASK) | (iLog2NumLongTermRps << 14));
 }
 
@@ -267,7 +266,7 @@ static inline uint32_t AL_GetNumberOfRef(uint32_t HlsParam)
 #define AL_SET_PPS_NUM_ACT_REF_L0(HlsParam, Num) (HlsParam) = ((HlsParam) & ~AL_PPS_NUM_ACT_REF_L0) | ((Num) << 4)
 #define AL_SET_PPS_NUM_ACT_REF_L1(HlsParam, Num) (HlsParam) = ((HlsParam) & ~AL_PPS_NUM_ACT_REF_L1) | ((Num) << 8)
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Encoding option enum
 *****************************************************************************/
 typedef enum AL_EChEncOption
@@ -290,7 +289,7 @@ typedef enum AL_EChEncOption
   AL_OPT_RDO_COST_MODE = 0x00040000, /*!< Reinforces the influence of the chrominance in the RDO choice */
 }AL_EChEncOption;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Encoding tools enum
 *****************************************************************************/
 typedef enum AL_EChEncTool
@@ -310,7 +309,7 @@ typedef enum AL_EChEncTool
 
 }AL_EChEncTool;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Rate Control Mode
 *****************************************************************************/
 typedef enum AL_ERateCtrlMode
@@ -326,7 +325,7 @@ typedef enum AL_ERateCtrlMode
   AL_RC_MAX_ENUM,
 }AL_ERateCtrlMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Rate Control Options
 *****************************************************************************/
 typedef enum AL_ERateCtrlOption
@@ -340,7 +339,7 @@ typedef enum AL_ERateCtrlOption
   AL_RC_OPT_MAX_ENUM,
 }AL_ERateCtrlOption;
 
-/*************************************************************************//*!
+/*****************************************************************************
     \brief Rate Control parameters.
     Contains the user defined constraints on the stream in term of quality and bandwidth.
     Also contains the hardware constraints that will affect the rate control (See AL_RC_OPT_DELAYED)
@@ -378,7 +377,7 @@ static inline bool AL_IS_ENC_HW_RATE_CTRL_ENABLED(AL_TRCParam const* pRCParam)
          || (pRCParam->pMaxPictureSize[AL_SLICE_B] > 0);
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief GOP Control Mode
 *****************************************************************************/
 #define AL_GOP_FLAG_B_ONLY 0x01
@@ -403,7 +402,7 @@ typedef enum AL_EGopCtrlMode
   AL_GOP_MODE_MAX_ENUM,
 }AL_EGopCtrlMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Group of Picture parameters.
 *****************************************************************************/
 typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TGopParam
@@ -422,7 +421,7 @@ typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TGopPara
   int8_t tempDQP[4];
 } AL_TGopParam;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief First Pass infos parameters
 *****************************************************************************/
 typedef struct AL_TLookAheadParam
@@ -433,7 +432,7 @@ typedef struct AL_TLookAheadParam
   int16_t iTargetLevel;
 }AL_TLookAheadParam;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Max burst size
 *****************************************************************************/
 typedef enum AL_EMaxBurstSize
@@ -444,7 +443,7 @@ typedef enum AL_EMaxBurstSize
   AL_BURST_512 = 3,
 }AL_EMaxBurstSize;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Source compression type
 *****************************************************************************/
 // [0] : CompMode | [3:1] : SourceFormat
@@ -465,7 +464,7 @@ AL_DEPRECATED_ENUM_VALUE(AL_ESrcMode, AL_SRC_NVX, AL_SRC_RASTER, "Renamed. Use A
 #define AL_GET_COMP_MODE(SrcConvFmt) ((SrcConvFmt) & MASK_SRC_COMP)
 #define AL_SET_COMP_MODE(SrcConvFmt, CompMode) (SrcConvFmt) = ((SrcConvFmt) & ~MASK_SRC_COMP) | ((CompMode) & MASK_SRC_COMP)
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief AOM interpolation filter
 *****************************************************************************/
 typedef enum AL_EInterPFilter
@@ -478,7 +477,7 @@ typedef enum AL_EInterPFilter
   AL_INTERP_MAX_ENUM, /* sentinel */
 }AL_EInterPFilter;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Extended merge candidates for VVC
 *****************************************************************************/
 
@@ -493,7 +492,7 @@ typedef struct AL_TAutoQPCtrl
   int8_t deltaQP[AL_QP_CTRL_MAX_NUM_DELTA_QPS];
 }AL_TAutoQPCtrl;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Channel parameters structure
 *****************************************************************************/
 typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TEncChanParam
@@ -598,8 +597,8 @@ typedef AL_INTROSPECT (category = "debug") struct __AL_ALIGNED__ (4) AL_TEncChan
   uint16_t uOutputCropHeight;
   uint16_t uOutputCropPosX;
   uint16_t uOutputCropPosY;
-  bool bSrcSync;
   uint8_t uSrcSyncChanID;
+  bool bSrcSync;
   bool bUseUniformSliceType;
   AL_EStartCodeBytesAlignedMode eStartCodeBytesAligned;
 
@@ -627,4 +626,4 @@ static inline bool AL_IS_CBR(AL_ERateCtrlMode eRcMode)
   return bIsCbr;
 }
 
-/*@}*/
+/*!@}*/

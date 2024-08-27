@@ -34,6 +34,7 @@ extern "C" {
 #include "lib_common_dec/IpDecFourCC.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_common_dec/HDRMeta.h"
+#include "lib_common/FbcMapSize.h"
 #include "lib_common/BufferPictureDecMeta.h"
 }
 #include "lib_app/BufPool.h"
@@ -252,6 +253,13 @@ void DisplayManager::ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDe
   AL_EOutputType eOutputType = AL_OUTPUT_MAIN;
   AL_EFbStorageMode eOutputStorageMode = eMainOutputStorageMode;
 
+  if(tDecOutputSettings.tPicFormat.bCompressed)
+  {
+    std::unique_ptr<IFrameSink> frameSink(createCompFrameSink(hFileOut, hMapOut, eOutputStorageMode, 0));
+    std::unique_ptr<IFrameSink> compressedSink(new SinkFilter(eOutputType, frameSink));
+    multisinkOut->addSink(compressedSink);
+  }
+  else
   {
     std::unique_ptr<IFrameSink> frameSink(createUnCompFrameSink(hFileOut, eOutputStorageMode));
     std::unique_ptr<IFrameSink> uncompressedSink(new SinkFilter(eOutputType, frameSink));
@@ -520,6 +528,34 @@ static int sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat const& 
     }
   }
 
+  // Set map planes
+  // --------------
+  if(tPicFormat.bCompressed)
+  {
+    int iMapPitchY = AL_GetFbcMapPitch(tDim.iWidth, tPicFormat.eStorageMode, tPicFormat.uBitDepth);
+
+    int iNbPlanes = AL_Plane_GetBufferMapPlanes(tPicFormat, usedPlanes);
+
+    for(int iPlane = 0; iPlane < iNbPlanes; iPlane++)
+    {
+      int iPitch = usedPlanes[iPlane] == AL_PLANE_MAP_Y ? iMapPitchY : AL_GetChromaPitch(tFourCC, iMapPitchY);
+      vPlaneDesc.push_back(AL_TPlaneDescription { usedPlanes[iPlane], iOffset, iPitch });
+
+      /* Ensures 420/422 compatibility, see pixel plane. */
+      if(bConfigurePlanarAndSemiplanar && usedPlanes[iPlane] == AL_PLANE_MAP_U)
+        vPlaneDesc.push_back(AL_TPlaneDescription { AL_PLANE_MAP_UV, iOffset, iPitch });
+
+      iOffset += AL_DecGetAllocSize_Frame_MapPlane(&tPicFormat, tDim, usedPlanes[iPlane]);
+
+      if(bSetMultiChunk)
+      {
+        SrcBufPool.AddChunk(iOffset + MULTICHUNK_ADDITIONAL_PLANE_SIZE, vPlaneDesc);
+        vPlaneDesc.clear();
+        iOffset = 0;
+      }
+    }
+  }
+
   if(!bSetMultiChunk)
     SrcBufPool.AddChunk(iOffset, vPlaneDesc);
 
@@ -775,7 +811,7 @@ AL_ERR DecoderContext::SetupBaseDecoderPool(int iBufferNumber, AL_TStreamSetting
   // ----------------------------------
   for(int i = 0; i < iNumBuf; ++i)
   {
-    auto pDecPict = tBaseBufPool.GetSharedBuffer(AL_BUF_MODE_NONBLOCK);
+    auto pDecPict = tBaseBufPool.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
 
     if(!pDecPict)
       throw runtime_error("pDecPict is null");
@@ -855,16 +891,6 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
   tCrop = info.tCrop;
   AL_TPosition tPos = { 0, 0 };
 
-  if(info.tPos.iX || info.tPos.iY)
-  {
-    tPos = info.tPos;
-    tCrop.bCropping = true;
-    tCrop.uCropOffsetLeft += info.tPos.iX;
-    tCrop.uCropOffsetRight -= info.tPos.iX;
-    tCrop.uCropOffsetTop += info.tPos.iY;
-    tCrop.uCropOffsetBottom -= info.tPos.iY;
-  }
-
   TFourCC tFourCCRecBuf = AL_PixMapBuffer_GetFourCC(&tRecBuf);
   AL_TPicFormat tRecPicFormat;
   AL_GetPicFormat(tFourCCRecBuf, &tRecPicFormat);
@@ -901,6 +927,11 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
   bool bCompress = AL_IsCompressed(tFourCCRecBuf);
   bool bConvert = !bCompress && tFourCCOut != tFourCCRecBuf;
 
+  AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
+
+  if(pMeta)
+    pMeta->tCrop = tCrop;
+
   if(bConvert)
   {
     if(tInputFourCC != tFourCCOut && bNewInputFourCCFound)
@@ -922,11 +953,6 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
   }
   else
   {
-    AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
-
-    if(pMeta)
-      pMeta->tCrop = tCrop;
-
     multisinkOut->ProcessFrame(&tRecBuf);
   }
 
@@ -1178,6 +1204,32 @@ AL_TPixMapMetaData* CreateAndFillPixMapMeta(TFourCC tFourCC, AL_TDimension tDim,
 
   pMeta->tDim = tDim;
 
+  if(tPicFmt.bCompressed)
+  {
+    uint16_t uMapPitch = AL_GetFbcMapPitch(tDim.iWidth, tPicFmt.eStorageMode, tPicFmt.uBitDepth);
+    int uMapSizeY = AL_DecGetAllocSize_Frame_MapPlane(&tPicFmt, tDim, AL_PLANE_MAP_Y);
+    int uMapSizeC = AL_DecGetAllocSize_Frame_MapPlane(&tPicFmt, tDim, AL_PLANE_MAP_UV);
+
+    AL_TPlane tPlaneMapY = { 0, uPlaneOffset, uMapPitch };
+    AL_TPlane tPlaneMapU = { 0, uPlaneOffset + uMapSizeY, uMapPitch };
+    AL_TPlane tPlaneMapV = { 0, uPlaneOffset + uMapSizeY + uMapSizeC, uMapPitch };
+
+    AL_PixMapMetaData_AddPlane(pMeta, tPlaneMapY, AL_PLANE_MAP_Y);
+
+    if(bHasChroma)
+    {
+      if(bIs444 || tPicFmt.ePlaneMode != AL_PLANE_MODE_SEMIPLANAR)
+      {
+        tPlaneMapV.iOffset = uPlaneOffset + 2 * uMapSizeY;
+        AL_PixMapMetaData_AddPlane(pMeta, tPlaneMapU, AL_PLANE_MAP_U);
+
+        AL_PixMapMetaData_AddPlane(pMeta, tPlaneMapV, AL_PLANE_MAP_V);
+      }
+      else
+        AL_PixMapMetaData_AddPlane(pMeta, tPlaneMapU, AL_PLANE_MAP_UV);
+    }
+  }
+
   return pMeta;
 }
 
@@ -1395,7 +1447,7 @@ void ConfigureInputPool(Config const& config, AL_TAllocator* pAllocator, BufPool
   AL_TMetaData* pBufMeta = nullptr;
 
   /* for embedded config we always allocate buffer using device allocator */
-  if(config.iDeviceType == AL_DEVICE_TYPE_EMBEDDED)
+  if(config.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
     pBufPoolAllocator = pAllocator;
 
   auto ret = tInputPool.Init(pBufPoolAllocator, uNumBuf, zBufSize, pBufMeta, sDebugName);
@@ -1438,7 +1490,7 @@ void SafeRunChannelMain(WorkerConfig& w)
   if(config.UseBaseDecoder())
   {
     auto hDec = tDecCtx.GetBaseDecoderHandle();
-    AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.bForceCleanBuffers, config.ipCtrlMode == AL_IPCTRL_MODE_TRACE);
+    AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
   }
 
   // Parametrization of the lcevc decoder for traces
@@ -1531,8 +1583,8 @@ static std::shared_ptr<CIpDevice> CreateAndConfigureBaseDecoderIpDevice(Config c
 {
   CIpDeviceParam param;
 
-  param.iSchedulerType = pConfig->iSchedulerType;
-  param.iDeviceType = pConfig->iDeviceType;
+  param.eSchedulerType = pConfig->eSchedulerType;
+  param.eDeviceType = pConfig->eDeviceType;
   param.bTrackDma = pConfig->trackDma;
   param.uNumCore = pConfig->tDecSettings.uNumCore;
   param.iHangers = pConfig->hangers;
@@ -1540,7 +1592,7 @@ static std::shared_ptr<CIpDevice> CreateAndConfigureBaseDecoderIpDevice(Config c
   param.apbFile = pConfig->apbFile;
   static std::set<std::string> decDevicePath = pConfig->sDecDevicePath;
 
-  std::shared_ptr<CIpDevice> pIpDevice = std::shared_ptr<CIpDevice>(new CIpDevice(param, pConfig->iDeviceType, { decDevicePath }));
+  std::shared_ptr<CIpDevice> pIpDevice = std::shared_ptr<CIpDevice>(new CIpDevice(param, pConfig->eDeviceType, { decDevicePath }));
 
   if(!pIpDevice)
     throw runtime_error("Can't create BaseDecoderIpDevice");
@@ -1554,7 +1606,7 @@ void SetupArchitecture(Config const& conf)
   (void)conf;
   AL_ELibDecoderArch eArch = AL_LIB_DECODER_ARCH_HOST;
 
-  if(conf.iDeviceType == AL_DEVICE_TYPE_EMBEDDED)
+  if(conf.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
     eArch = AL_LIB_DECODER_ARCH_RISCV;
 
   if(AL_Lib_Decoder_Init(eArch) != AL_SUCCESS)
@@ -1681,7 +1733,7 @@ void SafeMain(int argc, char** argv)
   if(config.UseBaseDecoder())
   {
     devices.insert({ DEVICE_BASE_DECODER, CreateAndConfigureBaseDecoderIpDevice(&config) });
-    useBoards.insert({ DEVICE_BASE_DECODER, (config.iDeviceType == AL_DEVICE_TYPE_BOARD) });
+    useBoards.insert({ DEVICE_BASE_DECODER, (config.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_BOARD) });
   }
 
   // Run all the channels

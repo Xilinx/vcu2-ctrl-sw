@@ -29,8 +29,6 @@
 #include "lib_parsing/Avc_PictMngr.h"
 #include "lib_parsing/Avc_SliceHeaderParsing.h"
 
-#include "lib_assert/al_assert.h"
-
 /******************************************************************************/
 static AL_TDimension extractDimension(AL_TAvcSps const* pSPS, bool bHasFields)
 {
@@ -237,7 +235,7 @@ static bool allocateBuffers(AL_TDecCtx* pCtx, AL_TAvcSps const* pSPS, bool bHasF
   int const iNumMBs = (pSPS->pic_width_in_mbs_minus1 + 1) * AL_AVC_GetFrameHeight(pSPS, bHasFields);
   (void)iNumMBs;
   AL_TStreamSettings const* pStreamSettings = &pCtx->tCurrentStreamSettings;
-  AL_Assert(iNumMBs == ((pStreamSettings->tDim.iWidth / 16) * (pStreamSettings->tDim.iHeight / 16)));
+  Rtos_Assert(iNumMBs == ((pStreamSettings->tDim.iWidth / 16) * (pStreamSettings->tDim.iHeight / 16)));
 
   int iSPSMaxSlices = getMaxNumberOfSlices(pCtx, pSPS) + 1; // One more for conceal slice
   int iSizeWP = iSPSMaxSlices * WP_SLICE_SIZE;
@@ -514,7 +512,7 @@ static void finishPreviousFrame(AL_TDecCtx* pCtx)
   AL_TAvcSliceHdr* pSlice = &pCtx->AvcSliceHdr[pCtx->uCurID];
   AL_TDecPicParam* pPP = &pCtx->PoolPP[pCtx->uToggle];
   AL_TDecSliceParam* pSP = &(((AL_TDecSliceParam*)pCtx->PoolSP[pCtx->uToggle].tMD.pVirtualAddr)[pCtx->tCurrentFrameCtx.uNumSlice - 1]);
-  AL_TDecPicBuffers* pBufs = &pCtx->PoolPB[pCtx->uToggle];
+  AL_TDecBuffers* pBufs = &pCtx->PoolPB[pCtx->uToggle];
 
   /* AVC doesn't have Dependent */
   bool const bUsedDependent = false;
@@ -589,7 +587,7 @@ static bool isValidSyncPoint(AL_TDecCtx* pCtx, AL_ENut eNUT, AL_ESliceType ePicT
 }
 
 /*****************************************************************************/
-static bool avcInitFrameBuffers(AL_TDecCtx* pCtx, bool bStartsNewCVS, const AL_TAvcSps* pSPS, AL_TDecPicParam* pPP, bool bHasFields, AL_TDecPicBuffers* pBufs)
+static bool avcInitFrameBuffers(AL_TDecCtx* pCtx, bool bStartsNewCVS, const AL_TAvcSps* pSPS, AL_TDecPicParam* pPP, bool bHasFields, AL_TDecBuffers* pBufs)
 {
   (void)bStartsNewCVS;
   AL_TDimension const tDim = extractDimension(pSPS, bHasFields);
@@ -629,7 +627,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
 
   // Slice header deanti-emulation
   AL_TRbspParser rp;
-  TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = &pCtx->Stream;
   InitRbspParser(pBufStream, pCtx->BufNoAE.tMD.pVirtualAddr, pCtx->BufNoAE.tMD.uSize, true, &rp);
 
   // Parse Slice Header
@@ -677,7 +675,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
   if(isValid)
     pConceal->iFirstLCU = pSlice->first_mb_in_slice;
 
-  AL_TDecPicBuffers* pBufs = &pCtx->PoolPB[pCtx->uToggle];
+  AL_TDecBuffers* pBufs = &pCtx->PoolPB[pCtx->uToggle];
   AL_TDecPicParam* pPP = &pCtx->PoolPP[pCtx->uToggle];
 
   if(isValid && pCtx->bAreBuffersAllocated)

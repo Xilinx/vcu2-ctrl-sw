@@ -304,7 +304,7 @@ uint8_t AL_GetSps(AL_THeadersCtx* pHdrs, uint16_t uWidth, uint16_t uHeight)
 
   pHdrs->iPrevSps = (pHdrs->iPrevSps + 1) % MAX_SPS_IDS;
   pCurrent = &pHdrs->spsCtx[pHdrs->iPrevSps];
-  AL_Assert(pCurrent->iRefCnt == 0);
+  Rtos_Assert(pCurrent->iRefCnt == 0);
   pCurrent->bHasBeenSent = false;
   pCurrent->size.iWidth = uWidth;
   pCurrent->size.iHeight = uHeight;
@@ -327,7 +327,7 @@ uint8_t AL_GetPps(AL_THeadersCtx* pHdrs, uint8_t uSpsId, int8_t iQpCbOffset, int
 
   pHdrs->iPrevPps = (pHdrs->iPrevPps + 1) % MAX_PPS_IDS;
   pCurrent = &pHdrs->ppsCtx[pHdrs->iPrevPps];
-  AL_Assert(pCurrent->iRefCnt == 0);
+  Rtos_Assert(pCurrent->iRefCnt == 0);
   pCurrent->bHasBeenSent = false;
   pCurrent->uSpsId = uSpsId;
   pCurrent->iQpCbOffset = iQpCbOffset;
@@ -342,8 +342,8 @@ void AL_ReleaseSps(AL_THeadersCtx* pHdrs, uint8_t id)
 {
   AL_TSpsCtx* pSps = pHdrs->spsCtx;
 
-  AL_Assert(id < MAX_SPS_IDS);
-  AL_Assert(pSps[id].iRefCnt > 0);
+  Rtos_Assert(id < MAX_SPS_IDS);
+  Rtos_Assert(pSps[id].iRefCnt > 0);
 
   pSps[id].bHasBeenSent = true;
 
@@ -355,8 +355,8 @@ void AL_ReleasePps(AL_THeadersCtx* pHdrs, uint8_t id)
 {
   AL_TPpsCtx* pPps = pHdrs->ppsCtx;
 
-  AL_Assert(id < MAX_PPS_IDS);
-  AL_Assert(pPps[id].iRefCnt > 0);
+  Rtos_Assert(id < MAX_PPS_IDS);
+  Rtos_Assert(pPps[id].iRefCnt > 0);
 
   pPps[id].bHasBeenSent = true;
 
@@ -368,8 +368,8 @@ bool AL_IsWriteSps(AL_THeadersCtx* pHdrs, uint8_t id)
 {
   AL_TSpsCtx* pSps = pHdrs->spsCtx;
 
-  AL_Assert(id < MAX_SPS_IDS);
-  AL_Assert(pSps[id].iRefCnt > 0);
+  Rtos_Assert(id < MAX_SPS_IDS);
+  Rtos_Assert(pSps[id].iRefCnt > 0);
 
   return !pSps[id].bHasBeenSent;
 }
@@ -379,8 +379,8 @@ bool AL_IsWritePps(AL_THeadersCtx* pHdrs, uint8_t id)
 {
   AL_TPpsCtx* pPps = pHdrs->ppsCtx;
 
-  AL_Assert(id < MAX_PPS_IDS);
-  AL_Assert(pPps[id].iRefCnt > 0);
+  Rtos_Assert(id < MAX_PPS_IDS);
+  Rtos_Assert(pPps[id].iRefCnt > 0);
 
   return !pPps[id].bHasBeenSent;
 }
@@ -390,8 +390,8 @@ AL_TDimension AL_GetPpsDim(AL_THeadersCtx* pHdrs, uint8_t id)
 {
   AL_TSpsCtx* pSps = pHdrs->spsCtx;
 
-  AL_Assert(id < MAX_SPS_IDS);
-  AL_Assert(pSps[id].iRefCnt > 0);
+  Rtos_Assert(id < MAX_SPS_IDS);
+  Rtos_Assert(pSps[id].iRefCnt > 0);
 
   return pSps[id].size;
 }

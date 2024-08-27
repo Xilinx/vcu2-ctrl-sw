@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_base
-   @{
+   !@{
    \file
  *****************************************************************************/
 #pragma once
@@ -45,7 +43,7 @@ static const uint32_t AL_PICT_INFO_NOT_SHOWABLE = 0x80000000; /*!< The picture i
 #define AL_IS_SHOWABLE(PicInfo) (!((PicInfo).uFlags & AL_PICT_INFO_NOT_SHOWABLE))
 #define AL_IS_SKIP(PicInfo) ((PicInfo).uFlags & AL_PICT_INFO_IS_SKIP)
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Picture information
 *****************************************************************************/
 typedef struct AL_TPictureInfo
@@ -91,4 +89,4 @@ typedef struct AL_TPictureInfo
   AL_TLookAheadParam tLAParam;
 }AL_TPictureInfo;
 
-/*@}*/
+/*!@}*/

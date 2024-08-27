@@ -6,7 +6,12 @@
 #include "CmdParser.h"
 #include "exe_decoder/CodecUtils.h"
 #include "lib_app/CommandLineParser.h"
+
+extern "C"
+{
 #include "lib_common/RoundUp.h"
+#include "lib_common/BufCommon.h"
+}
 
 /******************************************************************************/
 static void Usage(CommandLineParser const& opt, char* ExeName)
@@ -332,6 +337,14 @@ static AL_EFbStorageMode ParseFrameBufferFormat(const string& sBufFormat, bool& 
   if(sBufFormat == "tile64")
     return AL_FB_TILE_64x4;
 
+  bBufComp = true;
+
+  if(sBufFormat == "fbc")
+    return eDefaultTileStorageMode;
+
+  if(sBufFormat == "fbc64")
+    return AL_FB_TILE_64x4;
+
   throw runtime_error("Invalid buffer format");
 }
 
@@ -372,6 +385,8 @@ static std::string GetFrameBufferFormatOptDesc(bool bSecondOutput = false)
     sFBufFormatOptDesc += ", tile";
     sFBufFormatOptDesc += ", tile64 (64x4 tiling)";
 
+    sFBufFormatOptDesc += ", fbc (compression)";
+    sFBufFormatOptDesc += ", fbc64 (64x4 compression)";
   }
 
   sFBufFormatOptDesc += ", raster-msb (16-bit per sample, with MSB left-aligned)";
@@ -494,7 +509,7 @@ Config ParseCommandLine(int argc, char* argv[])
 
   opt.addOption("--embedded,-embedded", [&](string)
   {
-    config.iDeviceType = AL_DEVICE_TYPE_EMBEDDED;
+    config.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
   }, "Force usage of embedded mcu");
 
   bool dummyNextChan; // As the --next-channel is parsed elsewhere, this option is only used to add the description in the usage
@@ -580,6 +595,18 @@ Config ParseCommandLine(int argc, char* argv[])
     config.tDecSettings.eFBStorageMode = AL_FB_TILE_64x4;
     config.tDecSettings.bFrameBufferCompression = false;
   }, "Use \"--fbuf-format tile64\" instead");
+
+  opt.addOption("--fbc", [&](string)
+  {
+    config.tDecSettings.eFBStorageMode = eDefaultTileStorageMode;
+    config.tDecSettings.bFrameBufferCompression = true;
+  }, "Use \"--fbuf-format fbc\" instead");
+
+  opt.addOption("--fbc64", [&](string)
+  {
+    config.tDecSettings.eFBStorageMode = AL_FB_TILE_64x4;
+    config.tDecSettings.bFrameBufferCompression = true;
+  }, "Use \"--fbuf-format fbc64\" instead");
 
   static const std::string OUT_RASTER_DESC = "Use \"-out <raster-file> --fbuf-format-out raster\" instead";
   opt.addString("--out-raster,-out-raster", &sRasterOut, OUT_RASTER_DESC);

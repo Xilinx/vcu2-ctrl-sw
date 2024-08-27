@@ -351,7 +351,7 @@ static bool ParseCommonSei(SeiParserParam* pParam, AL_TRbspParser* pRP, AL_ESeiP
     }
     default:
     {
-      AL_Assert(0);
+      Rtos_Assert(false);
       break;
     }
     }

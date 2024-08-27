@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/*************************************************************************//*!
+/*****************************************************************************
    \addtogroup Decoder
-   @{
+   !@{
    \file
 *****************************************************************************/
 #pragma once
@@ -13,7 +13,7 @@
 #include "lib_common_dec/DecSynchro.h"
 #include "lib_common_dec/DecOutputSettings.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Channel Parameter structure
 *****************************************************************************/
 typedef struct AL_TDecChannelParam
@@ -43,4 +43,4 @@ typedef struct AL_TDecChannelParam
   uint32_t uNumBuffersHeldByNextComponent;
 }AL_TDecChanParam;
 
-/*@}*/
+/*!@}*/

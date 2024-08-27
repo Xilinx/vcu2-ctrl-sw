@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_base
-   @{
+   !@{
    \file
  *****************************************************************************/
 #pragma once
@@ -57,7 +55,7 @@ static const AL_TDecBufIDs tEmptyBufIDs =
   0xFF, 0xFF,
 };
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Slice Parameters : Mimics structure for IP registers
 *****************************************************************************/
 typedef struct AL_TDecPictParam
@@ -117,7 +115,7 @@ typedef struct AL_TDecPictParam
 }AL_TDecPicParam;
 
 /****************************************************************************/
-typedef struct AL_TPictBuffers
+typedef struct AL_TDecBuffers
 {
   TBuffer tCompData;
   TBuffer tCompMap;
@@ -142,16 +140,11 @@ typedef struct AL_TPictBuffers
   TBuffer tRecSecondOutputC2;
   uint32_t uPitchSecondOutput;
 
-}AL_TDecPicBuffers;
+}AL_TDecBuffers;
 
 /****************************************************************************/
-typedef struct AL_TDecPicBufferAddrs
+typedef struct AL_TDecPictBufferAddrs
 {
-  AL_PADDR pCompData;
-  AL_PADDR pCompMap;
-  AL_PADDR pListRef;
-  AL_PADDR pStream;
-  uint32_t uStreamSize;
   AL_PADDR pRecY;
   AL_PADDR pRecC1;
   AL_PADDR pRecC2;
@@ -159,17 +152,26 @@ typedef struct AL_TDecPicBufferAddrs
   AL_PADDR pRecFbcMapC1;
   AL_PADDR pRecFbcMapC2;
   uint32_t uPitch;
-  AL_PADDR pScl;
-  AL_PADDR pPoc;
-  AL_PADDR pMV;
-  AL_PADDR pWP;
-
   AL_PADDR pRecSecondOutputY;
   AL_PADDR pRecSecondOutputC1;
   AL_PADDR pRecSecondOutputC2;
   uint32_t uPitchSecondOutput;
+}AL_TDecPictBufferAddrs;
 
-}AL_TDecPicBufferAddrs;
+/****************************************************************************/
+typedef struct AL_TDecBufferAddrs
+{
+  AL_PADDR pCompData;
+  AL_PADDR pCompMap;
+  AL_PADDR pListRef;
+  AL_PADDR pStream;
+  uint32_t uStreamSize;
+  AL_PADDR pScl;
+  AL_PADDR pPoc;
+  AL_PADDR pMV;
+  AL_PADDR pWP;
+  AL_TDecPictBufferAddrs tDecBuffers;
+}AL_TDecBufferAddrs;
 
 /****************************************************************************/
 typedef struct AL_TJpegBufferAddrs
@@ -178,13 +180,10 @@ typedef struct AL_TJpegBufferAddrs
   uint32_t uStreamSize;
   uint32_t uOffset;
   uint32_t uAvailSize;
-  AL_PADDR pRecY;
-  AL_PADDR pRecC1;
-  AL_PADDR pRecC2;
-  uint32_t uPitch;
   AL_PADDR pHuff;
   AL_PADDR pMinMaxTab;
   AL_PADDR pQuantTab;
+  AL_TDecPictBufferAddrs tDecBuffers;
 }AL_TJpegBufferAddrs;
 
 /*****************************************************************************/
@@ -215,4 +214,4 @@ typedef struct AL_TDecPicStatus
 
 /*****************************************************************************/
 
-/*@}*/
+/*!@}*/

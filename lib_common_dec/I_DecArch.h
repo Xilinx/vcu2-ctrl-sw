@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_decode_hls
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -20,7 +18,7 @@ typedef struct AL_IDecArchVtable
   AL_ERR (* DecoderCreate)(AL_HDecoder* hDec, void* pScheduler, AL_TAllocator* pAllocator, void* pSettings, void* pCB);
   AL_ERR (* DecoderCreateWithCtx)(AL_HDecoder* hDec, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator, void* pSettings, void* pCB);
   void (* DecoderDestroy)(AL_HDecoder hDec);
-  void (* DecoderSetParam)(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bForceCleanBuffers, bool bShouldPrintFrameDelimiter);
+  void (* DecoderSetParam)(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bShouldPrintFrameDelimiter);
   void (* DecoderSetInternalFrameBuffersAllocator)(AL_HDecoder hDec, AL_TAllocator* pAllocator);
   bool (* DecoderPushStreamBuffer)(AL_HDecoder hDec, AL_TBuffer* pBuf, size_t uSize, uint8_t uFlags);
   bool (* DecoderPushBuffer)(AL_HDecoder hDec, AL_TBuffer* pBuf, size_t uSize);
@@ -41,4 +39,4 @@ typedef struct AL_IDecArch
   AL_IDecArchVtable const* vtable;
 }AL_IDecArch;
 
-/*@}*/
+/*!@}*/

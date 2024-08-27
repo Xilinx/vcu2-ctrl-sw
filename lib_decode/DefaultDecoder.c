@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_decode_hls
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -14,11 +12,14 @@
 #include "DefaultDecoder.h"
 #include "NalUnitParser.h"
 #include "lib_common/BufferAPI.h"
+#include "lib_common/Profiles.h"
 #include "lib_common_dec/InternalError.h"
+#include "lib_common_postproc/PostProcTypes.h"
 #include "NalUnitParserPrivate.h"
 #include "UnsplitBufferFeeder.h"
 #include "SplitBufferFeeder.h"
 #include "DecSettingsInternal.h"
+#include "SearchDecUnit.h"
 
 #include "lib_common/Error.h"
 #include "lib_common/StreamBuffer.h"
@@ -41,8 +42,7 @@
 #include "lib_common_dec/HDRMeta.h"
 #include "lib_common_dec/StreamSettingsInternal.h"
 #include "lib_common_dec/DecInfoInternal.h"
-
-#include "lib_assert/al_assert.h"
+#include "lib_common_dec/DecOutputSettingsInternal.h"
 
 #define TraceRecordEnd(pTraceHooks, unit, frameId, coreId, modId, chanId) \
   do { \
@@ -77,12 +77,6 @@
 static int const LAST_VCL_NAL_IN_AU_NOT_PRESENT = -1;
 
 /*****************************************************************************/
-static void ResetStartCodes(AL_TDecCtx* pCtx)
-{
-  pCtx->uNumSC = 0;
-}
-
-/*****************************************************************************/
 static bool isAVC(AL_ECodec eCodec)
 {
   return eCodec == AL_CODEC_AVC;
@@ -92,22 +86,6 @@ static bool isAVC(AL_ECodec eCodec)
 static bool isHEVC(AL_ECodec eCodec)
 {
   return eCodec == AL_CODEC_HEVC;
-}
-
-/*****************************************************************************/
-static bool isJPEG(AL_ECodec eCodec)
-{
-  return eCodec == AL_CODEC_JPEG;
-}
-
-/*****************************************************************************/
-static bool isITU(AL_ECodec eCodec)
-{
-  bool bIsITU = false;
-  bIsITU |= isAVC(eCodec);
-  bIsITU |= isHEVC(eCodec);
-  (void)eCodec;
-  return bIsITU;
 }
 
 /*****************************************************************************/
@@ -150,15 +128,15 @@ static AL_TDecCtx* AL_sGetContext(AL_TDecoder* pDec)
 }
 
 /*****************************************************************************/
-bool AL_Decoder_Alloc(AL_TDecCtx* pCtx, TMemDesc* pMD, uint32_t uSize, char const* name)
+bool AL_Decoder_Alloc(AL_TDecCtx* pCtx, AL_TMemDesc* pMD, uint32_t uSize, char const* name)
 {
-  return MemDesc_AllocNamed(pMD, pCtx->pAllocator, uSize, name);
+  return AL_MemDesc_AllocNamed(pMD, pCtx->pAllocator, uSize, name);
 }
 
 /*****************************************************************************/
-static void AL_Decoder_Free(TMemDesc* pMD)
+static void AL_Decoder_Free(AL_TMemDesc* pMD)
 {
-  MemDesc_Free(pMD);
+  AL_MemDesc_Free(pMD);
 }
 
 /*****************************************************************************/
@@ -183,9 +161,9 @@ static void AL_sDecoder_CallEndParsing(AL_TDecCtx* pCtx, AL_TBuffer* pParsedFram
   if(!isSubframeUnit(pCtx->pChanParam->eDecUnit))
   {
     (void)numHandles;
-    AL_Assert(numHandles == 1);
+    Rtos_Assert(numHandles == 1);
   }
-  AL_Assert(iParsingID < numHandles);
+  Rtos_Assert(iParsingID < numHandles);
 
   // The handles should be stored in the slice order.
   AL_TDecMetaHandle* pDecMetaHandle = (AL_TDecMetaHandle*)AL_HandleMetaData_GetHandle(pHandlesMeta, iParsingID);
@@ -207,7 +185,7 @@ static void AL_sDecoder_CallEndParsing(AL_TDecCtx* pCtx, AL_TBuffer* pParsedFram
 static void AL_sDecoder_CallDecode(AL_TDecCtx* pCtx, int iFrameID)
 {
   AL_TBuffer* pDecodedFrame = AL_PictMngr_GetDisplayBufferFromID(&pCtx->PictMngr, iFrameID);
-  AL_Assert(pDecodedFrame);
+  Rtos_Assert(pDecodedFrame);
 
   AL_THandleMetaData* pHandlesMeta = (AL_THandleMetaData*)AL_Buffer_GetMetaData(pDecodedFrame, AL_META_TYPE_HANDLE);
 
@@ -234,10 +212,8 @@ static void AL_sDecoder_CallDecode(AL_TDecCtx* pCtx, int iFrameID)
   if(!pCtx->pChanParam->bUseEarlyCallback)
     pCtx->tDecCB.endDecodingCB.func(pDecodedFrame, pCtx->tDecCB.endDecodingCB.userParam);
 
-  if(!pHandlesMeta)
-    return;
-
-  AL_HandleMetaData_ResetHandles(pHandlesMeta);
+  if(pHandlesMeta)
+    AL_HandleMetaData_ResetHandles(pHandlesMeta);
 }
 
 /*****************************************************************************/
@@ -330,7 +306,7 @@ static bool AL_sDecoder_TryDisplayOneFrame(AL_TDecCtx* pCtx, int iFrameID)
 
   uint8_t* pPtrIsNotNull = AL_Buffer_GetData(pFrameToDisplay);
   (void)pPtrIsNotNull;
-  AL_Assert(pPtrIsNotNull != NULL);
+  Rtos_Assert(pPtrIsNotNull != NULL);
 
   BuildCurrentHRD(pCtx, pFrameToDisplay, bStartsNewCVS);
 
@@ -365,7 +341,7 @@ void AL_Default_Decoder_EndParsing(void* pUserParam, int iFrameID, int iParsingI
     return;
 
   AL_TBuffer* pParsedFrame = AL_PictMngr_GetDisplayBufferFromID(&pCtx->PictMngr, iFrameID);
-  AL_Assert(pParsedFrame);
+  Rtos_Assert(pParsedFrame);
 
   AL_sDecoder_CallEndParsing(pCtx, pParsedFrame, iParsingID);
 }
@@ -376,7 +352,7 @@ void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus const* pS
   if(AL_DEC_IS_PIC_STATE_ENABLED(pStatus->tDecPicState, AL_DEC_PIC_STATE_CMD_INVALID))
   {
     Rtos_Log(AL_LOG_CRITICAL, "\n***** /!\\ Error trying to conceal bitstream - ending decoding /!\\ *****\n");
-    AL_Assert(0);
+    Rtos_Assert(false);
   }
 
   AL_TDecCtx* pCtx = (AL_TDecCtx*)pUserParam;
@@ -388,11 +364,11 @@ void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus const* pS
   {
     /* we want to notify the user, but we don't want to update the decoder state */
     AL_TBuffer* pDecodedFrame = AL_PictMngr_GetDisplayBufferFromID(&pCtx->PictMngr, iFrameID);
-    AL_Assert(pDecodedFrame);
+    Rtos_Assert(pDecodedFrame);
     pCtx->tDecCB.endDecodingCB.func(pDecodedFrame, pCtx->tDecCB.endDecodingCB.userParam);
     bool const bSuccess = AL_sDecoder_TryDisplayOneFrame(pCtx, iFrameID);
     (void)bSuccess;
-    AL_Assert(bSuccess);
+    Rtos_Assert(bSuccess);
     return;
   }
 
@@ -455,34 +431,34 @@ void AL_Default_Decoder_ReleaseStreamBuffer(void* pUserParam, AL_TBuffer* pBufSt
 /*****************************************************************************/
 static void InitInternalBuffers(AL_TDecCtx* pCtx)
 {
-  MemDesc_Init(&pCtx->BufNoAE.tMD);
-  MemDesc_Init(&pCtx->BufSCD.tMD);
-  MemDesc_Init(&pCtx->SCTable.tMD);
+  AL_MemDesc_Init(&pCtx->BufNoAE.tMD);
+  AL_MemDesc_Init(&pCtx->BufSCD.tMD);
+  AL_MemDesc_Init(&pCtx->SCTable.tMD);
 
   for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; ++i)
   {
-    MemDesc_Init(&pCtx->PoolSclLst[i].tMD);
-    MemDesc_Init(&pCtx->PoolCompData[i].tMD);
-    MemDesc_Init(&pCtx->PoolCompMap[i].tMD);
-    MemDesc_Init(&pCtx->PoolSP[i].tMD);
-    MemDesc_Init(&pCtx->PoolWP[i].tMD);
-    MemDesc_Init(&pCtx->PoolListRefAddr[i].tMD);
+    AL_MemDesc_Init(&pCtx->PoolSclLst[i].tMD);
+    AL_MemDesc_Init(&pCtx->PoolCompData[i].tMD);
+    AL_MemDesc_Init(&pCtx->PoolCompMap[i].tMD);
+    AL_MemDesc_Init(&pCtx->PoolSP[i].tMD);
+    AL_MemDesc_Init(&pCtx->PoolWP[i].tMD);
+    AL_MemDesc_Init(&pCtx->PoolListRefAddr[i].tMD);
   }
 
   for(int i = 0; i < MAX_DPB_SIZE; ++i)
   {
-    MemDesc_Init(&pCtx->PictMngr.MvBufPool.pMvBufs[i].tMD);
-    MemDesc_Init(&pCtx->PictMngr.MvBufPool.pPocBufs[i].tMD);
+    AL_MemDesc_Init(&pCtx->PictMngr.MvBufPool.pMvBufs[i].tMD);
+    AL_MemDesc_Init(&pCtx->PictMngr.MvBufPool.pPocBufs[i].tMD);
   }
 
   for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; i++)
   {
-    MemDesc_Init(&pCtx->HuffmanBuffer[i].tMD);
-    MemDesc_Init(&pCtx->QuantBuffer[i].tMD);
-    MemDesc_Init(&pCtx->MinMaxBuf[i].tMD);
+    AL_MemDesc_Init(&pCtx->HuffmanBuffer[i].tMD);
+    AL_MemDesc_Init(&pCtx->QuantBuffer[i].tMD);
+    AL_MemDesc_Init(&pCtx->MinMaxBuf[i].tMD);
   }
 
-  MemDesc_Init(&pCtx->tMDChanParam);
+  AL_MemDesc_Init(&pCtx->tMDChanParam);
   pCtx->pChanParam = NULL;
 }
 
@@ -530,7 +506,7 @@ static void ReleaseFramePictureUnused(AL_TDecCtx* pCtx)
 
     uint8_t* pPtrIsNotNull = AL_Buffer_GetData(pFrameToRelease);
     (void)pPtrIsNotNull;
-    AL_Assert(pPtrIsNotNull != NULL);
+    Rtos_Assert(pPtrIsNotNull != NULL);
 
     pCtx->tDecCB.displayCB.func(pFrameToRelease, NULL, pCtx->tDecCB.displayCB.userParam);
     AL_PictMngr_SignalCallbackReleaseIsDone(&pCtx->PictMngr, pFrameToRelease);
@@ -549,7 +525,7 @@ void AL_Default_Decoder_Destroy(AL_TDecoder* pAbsDec)
 {
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = &pDec->ctx;
-  AL_Assert(pCtx);
+  Rtos_Assert(pCtx);
 
   AL_PictMngr_DecommitPool(&pCtx->PictMngr);
 
@@ -574,7 +550,7 @@ void AL_Default_Decoder_Destroy(AL_TDecoder* pAbsDec)
 }
 
 /*****************************************************************************/
-void AL_Default_Decoder_SetParam(AL_TDecoder* pAbsDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bForceCleanBuffers, bool bShouldPrintFrameDelimiter)
+void AL_Default_Decoder_SetParam(AL_TDecoder* pAbsDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bShouldPrintFrameDelimiter)
 {
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = &pDec->ctx;
@@ -587,215 +563,6 @@ void AL_Default_Decoder_SetParam(AL_TDecoder* pAbsDec, const char* sPrefix, int 
   pCtx->iTraceFirstFrame = iFrmID;
   pCtx->iTraceLastFrame = iFrmID + iNumFrm;
   pCtx->bShouldPrintFrameDelimiter = bShouldPrintFrameDelimiter;
-
-  if(iNumFrm > 0 || bForceCleanBuffers)
-    AL_CLEAN_BUFFERS = 1;
-  else
-    AL_CLEAN_BUFFERS = 0;
-}
-
-/*****************************************************************************/
-static bool enoughStartCode(int iNumStartCode)
-{
-  return iNumStartCode > 1;
-}
-
-/******************************************************************************/
-static int NalHeaderSize(AL_ECodec eCodec)
-{
-
-  if(isAVC(eCodec))
-  {
-    return AL_AVC_NAL_HDR_SIZE;
-  }
-
-  if(isHEVC(eCodec))
-  {
-    return AL_HEVC_NAL_HDR_SIZE;
-  }
-
-  (void)eCodec;
-  return -1;
-}
-
-/*****************************************************************************/
-static bool isAud(AL_ECodec eCodec, AL_ENut eNut)
-{
-
-  if(isAVC(eCodec))
-    return eNut == AL_AVC_NUT_AUD;
-
-  if(isHEVC(eCodec))
-    return eNut == AL_HEVC_NUT_AUD;
-
-  (void)eCodec;
-  (void)eNut;
-  return false;
-}
-
-/*****************************************************************************/
-static bool isEosOrEob(AL_ECodec eCodec, AL_ENut eNut)
-{
-
-  if(isAVC(eCodec))
-    return (eNut == AL_AVC_NUT_EOS) || (eNut == AL_AVC_NUT_EOB);
-
-  if(isHEVC(eCodec))
-    return (eNut == AL_HEVC_NUT_EOS) || (eNut == AL_HEVC_NUT_EOB);
-
-  (void)eCodec;
-  (void)eNut;
-  return false;
-}
-
-/*****************************************************************************/
-static bool isFd(AL_ECodec eCodec, AL_ENut eNut)
-{
-
-  if(isAVC(eCodec))
-    return eNut == AL_AVC_NUT_FD;
-
-  if(isHEVC(eCodec))
-    return eNut == AL_HEVC_NUT_FD;
-
-  (void)eCodec;
-  (void)eNut;
-  return false;
-}
-
-/*****************************************************************************/
-static bool isPrefixSei(AL_ECodec eCodec, AL_ENut eNut)
-{
-
-  if(isAVC(eCodec))
-    return eNut == AL_AVC_NUT_PREFIX_SEI;
-
-  if(isHEVC(eCodec))
-    return eNut == AL_HEVC_NUT_PREFIX_SEI;
-
-  (void)eCodec;
-  (void)eNut;
-  return false;
-}
-
-/*****************************************************************************/
-static uint32_t skipNalHeader(uint32_t uPos, AL_ECodec eCodec, uint32_t uSize)
-{
-  int iNalHdrSize = NalHeaderSize(eCodec);
-  AL_Assert(iNalHdrSize);
-  return (uPos + iNalHdrSize) % uSize; // skip start code + nal header
-}
-
-/*****************************************************************************/
-static bool checkSeiUUID(uint8_t const* pBufs, AL_TNal const* pNal, AL_ECodec eCodec, int iTotalSize)
-{
-  (void)eCodec;
-  int iTotalUUIDSize = 26;
-
-  if(isAVC(eCodec))
-    iTotalUUIDSize = 25;
-
-  if((int)pNal->uSize != iTotalUUIDSize)
-    return false;
-
-  int iStart = 7;
-
-  if(isAVC(eCodec))
-    iStart = 6;
-  int const iSize = sizeof(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID) / sizeof(*SEI_PREFIX_USER_DATA_UNREGISTERED_UUID);
-
-  for(int i = 0; i < iSize; i++)
-  {
-    int iPosition = (pNal->tStartCode.uPosition + iStart + i) % iTotalSize;
-
-    if(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID[i] != pBufs[iPosition])
-      return false;
-  }
-
-  return true;
-}
-
-/*****************************************************************************/
-static bool isStartCode(uint8_t* pBuf, uint32_t uSize, uint32_t uPos)
-{
-  return (pBuf[uPos % uSize] == 0x00) &&
-         (pBuf[(uPos + 1) % uSize] == 0x00) &&
-         (pBuf[(uPos + 2) % uSize] == 0x01);
-}
-
-/*****************************************************************************/
-static int getNumSliceInSei(uint8_t* pBufs, AL_TNal* pNal, AL_ECodec eCodec, int iTotalSize)
-{
-  (void)eCodec;
-  AL_Assert(checkSeiUUID(pBufs, pNal, eCodec, iTotalSize));
-  int iStart = 7;
-
-  if(isAVC(eCodec))
-    iStart = 6;
-  int const iSize = sizeof(SEI_PREFIX_USER_DATA_UNREGISTERED_UUID) / sizeof(*SEI_PREFIX_USER_DATA_UNREGISTERED_UUID);
-  int iPosition = (pNal->tStartCode.uPosition + iStart + iSize) % iTotalSize;
-  return pBufs[iPosition];
-}
-
-/*****************************************************************************/
-static bool isVcl(AL_ECodec eCodec, AL_ENut eNut)
-{
-
-  if(isAVC(eCodec))
-    return AL_AVC_IsVcl(eNut);
-
-  if(isHEVC(eCodec))
-    return AL_HEVC_IsVcl(eNut);
-
-  (void)eCodec;
-  (void)eNut;
-  return false;
-}
-
-/* should only be used when the position is right after the nal header */
-/*****************************************************************************/
-static bool isFirstSlice(uint8_t* pBuf, uint32_t uPos)
-{
-  // in AVC, the first bit of the slice data is 1. (first_mb_in_slice = 0 encoded in ue)
-  // in HEVC, the first bit is 1 too. (first_slice_segment_in_pic_flag = 1 if true))
-  return (pBuf[uPos] & 0x80) != 0;
-}
-
-/*****************************************************************************/
-static bool isFirstSliceStatusAvailable(int iSize, int iNalHdrSize)
-{
-  return iSize > iNalHdrSize;
-}
-
-/*****************************************************************************/
-static bool isFirstSliceNAL(AL_TNal* pNal, AL_TBuffer* pStream, AL_ECodec eCodec)
-{
-  uint8_t* pBuf = AL_Buffer_GetData(pStream);
-  uint32_t uPos = pNal->tStartCode.uPosition;
-  uint32_t uSize = AL_Buffer_GetSize(pStream);
-  bool const bIsStartCode = isStartCode(pBuf, uSize, uPos);
-  (void)bIsStartCode;
-  AL_Assert(bIsStartCode);
-  uPos = skipNalHeader(uPos, eCodec, uSize);
-  return isFirstSlice(pBuf, uPos);
-}
-
-/******************************************************************************/
-static bool isSOI(uint8_t markerCode)
-{
-  return markerCode == 0xD8;
-}
-
-/******************************************************************************/
-static bool isEOI(uint8_t markerCode)
-{
-  return markerCode == 0xD9;
-}
-
-/******************************************************************************/
-static bool isSOFs(uint8_t markerCode)
-{
-  return markerCode == 0xC0 || markerCode == 0xC1 || markerCode == 0xC3;
 }
 
 /******************************************************************************/
@@ -875,170 +642,10 @@ static int32_t SearchMarkers(AL_TBuffer* pStream, AL_TCircMetaData* pMeta, AL_TS
 }
 
 /*****************************************************************************/
-typedef enum
-{
-  MARKER_FIND_SOI,
-  MARKER_FIND_SOFx,
-  MARKER_FIND_EOI,
-}EMarkerState;
-
-/*****************************************************************************/
 static bool SearchNextDecodingUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* pLastStartCodeInDecodingUnit, int* iLastVclNalInDecodingUnit)
 {
   (void)pStream;
-  (void)pLastStartCodeInDecodingUnit;
-  (void)iLastVclNalInDecodingUnit;
-
-  if(!enoughStartCode(pCtx->uNumSC))
-    return false;
-
-  AL_TNal* pTable = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
-
-  if(isJPEG(pCtx->pChanParam->eCodec))
-  {
-    int soiIndex = 0;
-    EMarkerState state = MARKER_FIND_SOI;
-
-    for(int i = 0; i < pCtx->uNumSC; ++i)
-    {
-      switch(state)
-      {
-      case MARKER_FIND_SOI:
-
-        if(isSOI(pTable[i].tStartCode.uNUT))
-        {
-          soiIndex = i;
-          state = MARKER_FIND_SOFx;
-        }
-        break;
-
-      case MARKER_FIND_SOFx:
-
-        if(isSOFs(pTable[i].tStartCode.uNUT))
-        {
-          state = MARKER_FIND_EOI;
-        }
-        else if(isEOI(pTable[i].tStartCode.uNUT))
-        {
-          // if no SOF0 or SOF3 found between SOI and EOI. Ignore the frame and look for the next one.
-          state = MARKER_FIND_SOI;
-        }
-        break;
-
-      case MARKER_FIND_EOI:
-
-        if(isEOI(pTable[i].tStartCode.uNUT))
-        {
-          /*To fit the JPEG decodeHeader, the whole frame needs to be squash in one unit. */
-          if(pTable[i].tStartCode.uPosition > pTable[soiIndex].tStartCode.uPosition)
-            pTable[i].uSize = pTable[i].tStartCode.uPosition - pTable[soiIndex].tStartCode.uPosition + 2; // 2 size EOI
-          else
-            pTable[i].uSize = AL_Buffer_GetSize(pStream) + pTable[i].tStartCode.uPosition - pTable[soiIndex].tStartCode.uPosition + 2; // 2 size EOI
-
-          pTable[i].tStartCode.uPosition = pTable[soiIndex].tStartCode.uPosition;
-
-          for(int j = i; j < pCtx->uNumSC; j++)
-            pTable[j - i] = pTable[j];
-
-          pCtx->uNumSC -= i;
-
-          *pLastStartCodeInDecodingUnit = 0;
-          *iLastVclNalInDecodingUnit = 0;
-          return true;
-        }
-        else if(isSOI(pTable[i].tStartCode.uNUT))
-        {
-          state = MARKER_FIND_SOFx;
-        }
-        break;
-      }
-    }
-
-    return false;
-  }
-
-  uint8_t* pBuf = AL_Buffer_GetData(pStream);
-  bool bVCLNalSeen = false;
-  int iNalFound = 0;
-  AL_ECodec const eCodec = pCtx->pChanParam->eCodec;
-  int const iNalCount = (int)pCtx->uNumSC;
-
-  for(int iNal = 0; iNal < iNalCount; ++iNal)
-  {
-    AL_TNal* pNal = &pTable[iNal];
-    AL_ENut eNUT = pNal->tStartCode.uNUT;
-
-    if(iNal > 0)
-      iNalFound++;
-
-    if(!isVcl(eCodec, eNUT))
-    {
-      if(isAud(eCodec, eNUT) || isEosOrEob(eCodec, eNUT))
-      {
-        if(bVCLNalSeen)
-        {
-          iNalFound--;
-          *pLastStartCodeInDecodingUnit = iNalFound;
-          return true;
-        }
-      }
-
-      if(isPrefixSei(eCodec, eNUT) && checkSeiUUID(pBuf, pNal, eCodec, AL_Buffer_GetSize(pStream)))
-      {
-        pCtx->iNumSlicesRemaining = getNumSliceInSei(pBuf, pNal, eCodec, AL_Buffer_GetSize(pStream));
-        AL_Assert(pCtx->iNumSlicesRemaining > 0);
-      }
-
-      if(isFd(eCodec, eNUT) && isSubframeUnit(pCtx->pChanParam->eDecUnit))
-      {
-        bool bIsLastSlice = pCtx->iNumSlicesRemaining == 1;
-
-        if(bIsLastSlice && bVCLNalSeen)
-        {
-          *pLastStartCodeInDecodingUnit = iNalFound;
-          pCtx->iNumSlicesRemaining = 0;
-          return true;
-        }
-      }
-
-    }
-
-    if(isVcl(eCodec, eNUT))
-    {
-      int iNalHdrSize = NalHeaderSize(eCodec);
-      AL_Assert(iNalHdrSize > 0);
-
-      if(isFirstSliceStatusAvailable(pNal->uSize, iNalHdrSize))
-      {
-        bool bIsFirstSlice = isFirstSliceNAL(pNal, pStream, eCodec);
-
-        if(bVCLNalSeen)
-        {
-          if(bIsFirstSlice)
-          {
-            iNalFound--;
-            *pLastStartCodeInDecodingUnit = iNalFound;
-            return true;
-          }
-
-          if(isSubframeUnit(pCtx->pChanParam->eDecUnit))
-          {
-            pCtx->iNumSlicesRemaining--;
-            iNalFound--;
-            *pLastStartCodeInDecodingUnit = iNalFound;
-            int const iIsNotLastSlice = -1;
-            *iLastVclNalInDecodingUnit = iIsNotLastSlice;
-            return true;
-          }
-        }
-      }
-
-      bVCLNalSeen = true;
-      *iLastVclNalInDecodingUnit = iNal;
-    }
-  }
-
-  return false;
+  return AL_SearchDecUnit_GetNextUnit(&pCtx->SearchCtx, pLastStartCodeInDecodingUnit, iLastVclNalInDecodingUnit);
 }
 
 /*****************************************************************************/
@@ -1068,7 +675,7 @@ static AL_TSeiMetaData* GetSeiMetaData(AL_TDecCtx* pCtx)
 }
 
 /*****************************************************************************/
-bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, uint32_t uNutSize, bool bIsLastAUNal, int* iNumSlice)
+static bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, uint32_t uNutSize, bool bIsLastAUNal, int* iNumSlice)
 {
   (void)uNutSize;
 
@@ -1201,7 +808,7 @@ static bool DecodeOneNAL(AL_TDecCtx* pCtx, AL_TNal* pNal, int* pNumSlice, bool b
   if(pCtx->tCurrentFrameCtx.uNumSlice > 0 && *pNumSlice > pCtx->pChanParam->iMaxSlices)
     return false;
 
-  if(isJPEG(pCtx->pChanParam->eCodec))
+  if(AL_IS_JPEG_CODEC(pCtx->pChanParam->eCodec))
     return AL_JPEG_DecodeOneNAL(pCtx);
 
   return AL_DecodeOneNal(&pCtx->aup, pCtx, pNal->tStartCode.uNUT, pNal->uSize, bIsLastVclNal, pNumSlice);
@@ -1212,20 +819,6 @@ static bool DecodeOneNAL(AL_TDecCtx* pCtx, AL_TNal* pNal, int* pNumSlice, bool b
 }
 
 /*****************************************************************************/
-static bool canStoreMoreStartCodes(AL_TDecCtx* pCtx)
-{
-  return (pCtx->uNumSC + 1) * sizeof(AL_TNal) <= pCtx->SCTable.tMD.uSize - pCtx->BufSCD.tMD.uSize;
-}
-
-/*****************************************************************************/
-static size_t DeltaPosition(uint32_t uFirstPos, uint32_t uSecondPos, uint32_t uSize)
-{
-  if(uFirstPos < uSecondPos)
-    return uSecondPos - uFirstPos;
-  return uSize + uSecondPos - uFirstPos;
-}
-
-/*****************************************************************************/
 static void updateStartCodeNumber(AL_TDecCtx* pCtx, AL_TDecScdBuffers* pScdBuffers, AL_TCircMetaData* pMeta, uint16_t numSC)
 {
   uint32_t uMaxSize = pScdBuffers->StreamBuf.tMD.uSize;
@@ -1233,37 +826,22 @@ static void updateStartCodeNumber(AL_TDecCtx* pCtx, AL_TDecScdBuffers* pScdBuffe
   pMeta->iOffset = (pMeta->iOffset + pCtx->ScdStatus.uNumBytes) % uMaxSize;
   pMeta->iAvailSize -= pCtx->ScdStatus.uNumBytes;
 
-  AL_TStartCode* src = (AL_TStartCode*)pScdBuffers->ScdBufOut.tMD.pVirtualAddr;
+  AL_TStartCode* pSC = (AL_TStartCode*)pScdBuffers->ScdBufOut.tMD.pVirtualAddr;
 
-  AL_TNal* dst = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
-
-  if(pCtx->uNumSC && numSC)
-    dst[pCtx->uNumSC - 1].uSize = DeltaPosition(dst[pCtx->uNumSC - 1].tStartCode.uPosition, src[0].uPosition, uMaxSize);
-
-  for(int i = 0; i < numSC; i++)
-  {
-    dst[pCtx->uNumSC].tStartCode = src[i];
-
-    if(i + 1 == numSC)
-      dst[pCtx->uNumSC].uSize = DeltaPosition(src[i].uPosition, pMeta->iOffset, uMaxSize);
-    else
-      dst[pCtx->uNumSC].uSize = DeltaPosition(src[i].uPosition, src[i + 1].uPosition, uMaxSize);
-
-    pCtx->uNumSC++;
-  }
+  AL_SearchDecUnit_Update(&pCtx->SearchCtx, pSC, numSC, pMeta->iOffset, false);
 }
 
 /*****************************************************************************/
 static void initScdBuffer(AL_TDecScdBuffers* pScdBufs, AL_TBuffer* pStream, AL_TCircMetaData* pMeta, TBuffer* pScdOut)
 {
-  MemDesc_Init(&pScdBufs->StreamBuf.tMD);
+  AL_MemDesc_Init(&pScdBufs->StreamBuf.tMD);
   pScdBufs->StreamBuf.tMD.pVirtualAddr = AL_Buffer_GetVirtualAddress(pStream);
   pScdBufs->StreamBuf.tMD.uPhysicalAddr = AL_Buffer_GetPhysicalAddress(pStream);
   pScdBufs->StreamBuf.tMD.uSize = AL_Buffer_GetSize(pStream);
 
   pScdBufs->StreamMeta = *pMeta;
 
-  MemDesc_Init(&pScdBufs->ScdBufOut.tMD);
+  AL_MemDesc_Init(&pScdBufs->ScdBufOut.tMD);
   pScdBufs->ScdBufOut.tMD.pVirtualAddr = pScdOut->tMD.pVirtualAddr;
   pScdBufs->ScdBufOut.tMD.uPhysicalAddr = pScdOut->tMD.uPhysicalAddr;
   pScdBufs->ScdBufOut.tMD.uSize = pScdOut->tMD.uSize;
@@ -1281,7 +859,7 @@ static void GetScdAddrs(AL_TScBufferAddrs* pScdBufAddrs, AL_TDecScdBuffers const
   pScdBufAddrs->pBufOut = pScdBuffers->ScdBufOut.tMD.uPhysicalAddr;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function performs DPB operations after frames decoding
    \param[in] pUserParam filled with the decoder context
    \param[in] pStatus Current start code searching status
@@ -1300,7 +878,7 @@ static bool RefillStartCodes(AL_TDecCtx* pCtx, AL_TBuffer* pStream)
 {
   AL_TCircMetaData* pMeta = (AL_TCircMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_CIRCULAR);
 
-  if(isJPEG(pCtx->pChanParam->eCodec))
+  if(AL_IS_JPEG_CODEC(pCtx->pChanParam->eCodec))
   {
     AL_TDecScdBuffers ScdBuffers;
     initScdBuffer(&ScdBuffers, pStream, pMeta, &pCtx->BufSCD);
@@ -1355,39 +933,45 @@ static bool RefillStartCodes(AL_TDecCtx* pCtx, AL_TBuffer* pStream)
 }
 
 /*****************************************************************************/
+static bool canStoreMoreStartCodes(AL_TDecCtx* pCtx)
+{
+  return AL_SearchDecUnit_GetStorageSize(&pCtx->SearchCtx) >= (pCtx->BufSCD.tMD.uSize / sizeof(AL_TStartCode));
+}
+
+/*****************************************************************************/
 static int FindNextDecodingUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* iLastVclNalInAU)
 {
-  int iLastStartCodeIdx = 0;
+  int iNalCount = 0;
 
-  while(!SearchNextDecodingUnit(pCtx, pStream, &iLastStartCodeIdx, iLastVclNalInAU))
+  while(!SearchNextDecodingUnit(pCtx, pStream, &iNalCount, iLastVclNalInAU))
   {
 
     if(!canStoreMoreStartCodes(pCtx))
     {
       // The start code table is full and doesn't contain any AU.
       // Clear the start code table to avoid a stall
-      ResetStartCodes(pCtx);
+      AL_SearchDecUnit_Reset(&pCtx->SearchCtx);
     }
 
     if(!RefillStartCodes(pCtx, pStream))
       return 0;
   }
 
-  return iLastStartCodeIdx + 1;
+  return iNalCount;
 }
 
 /*****************************************************************************/
-static int FillNalInfo(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* iLastVclNalInAU)
+static int FillNalInfo(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* pLastVclNalInAU)
 {
-  (void)iLastVclNalInAU;
+  (void)pLastVclNalInAU;
   pCtx->pInputBuffer = pStream;
 
   while(RefillStartCodes(pCtx, pStream) != false)
     ;
 
-  int iNalCount = pCtx->uNumSC;
+  int iNalCount = AL_SearchDecUnit_GetCurNalCount(&pCtx->SearchCtx);
 
-  if(isITU(pCtx->pChanParam->eCodec))
+  if(AL_IS_ITU_CODEC(pCtx->pChanParam->eCodec))
   {
     AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_STREAM);
     bool bSearchLastVCLNal = false;
@@ -1401,43 +985,11 @@ static int FillNalInfo(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* iLastVclNalIn
       }
     }
 
-    AL_TNal* pTable = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
-    AL_ECodec const eCodec = pCtx->pChanParam->eCodec;
-
-    for(int iNal = iNalCount - 1; iNal >= 0; --iNal)
-    {
-      AL_TNal* pNal = &pTable[iNal];
-      AL_ENut eNUT = pNal->tStartCode.uNUT;
-
-      if(isVcl(eCodec, eNUT))
-      {
-        if(bSearchLastVCLNal)
-        {
-          *iLastVclNalInAU = iNal;
-          bSearchLastVCLNal = false;
-        }
-
-        if(isFirstSliceNAL(pNal, pStream, eCodec))
-        {
-          break;
-        }
-      }
-    }
+    if(bSearchLastVCLNal)
+      *pLastVclNalInAU = AL_SearchDecUnit_GetLastVCL(&pCtx->SearchCtx);
   }
 
   return iNalCount;
-}
-
-/*****************************************************************************/
-static void ConsumeNals(AL_TDecCtx* pCtx, int iNumNal)
-{
-  AL_TNal* nals = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
-
-  if(iNumNal)
-    pCtx->iCurNalStreamOffset = (nals[iNumNal - 1].tStartCode.uPosition + nals[iNumNal - 1].uSize) % pCtx->Stream.tMD.uSize;
-
-  pCtx->uNumSC -= iNumNal;
-  Rtos_Memmove(nals, nals + iNumNal, pCtx->uNumSC * sizeof(AL_TNal));
 }
 
 /*****************************************************************************/
@@ -1465,7 +1017,7 @@ static bool GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
     return true;
   }
 
-  AL_Assert(isITU(pCtx->pChanParam->eCodec) && "Unsupported codec");
+  Rtos_Assert(AL_IS_ITU_CODEC(pCtx->pChanParam->eCodec) && "Unsupported codec");
 
   while(true)
   {
@@ -1497,7 +1049,7 @@ static bool GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
     }
     case SEND_LAST_VCL:
     {
-      AL_Assert(*iNal == iLastVclNalInAU);
+      Rtos_Assert(*iNal == iLastVclNalInAU);
       (*step) = SEND_REMAINING_NAL;
       return true;
     }
@@ -1522,7 +1074,7 @@ static bool GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
     }
     default:
     {
-      AL_Assert(0);
+      Rtos_Assert(false);
       return false;
     }
     }
@@ -1532,17 +1084,10 @@ static bool GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
 }
 
 /*****************************************************************************/
-static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalCount, int iLastVclNalInAU)
+static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TCircBuffer* pStream, AL_TNal* pNals, int iNalCount, int iLastVclNalInAU)
 {
-  AL_TNal* nals = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
-
   /* copy start code buffer stream information into decoder stream buffer */
-  pCtx->Stream.tMD.uSize = AL_Buffer_GetSize(pStream);
-  pCtx->Stream.tMD.pAllocator = pStream->pAllocator;
-  pCtx->Stream.tMD.hAllocBuf = pStream->hBufs[0];
-  pCtx->Stream.tMD.pVirtualAddr = AL_Buffer_GetData(pStream);
-  pCtx->Stream.tMD.uPhysicalAddr = AL_Buffer_GetPhysicalAddress(pStream);
-  AL_TCircMetaData const* pMeta = (AL_TCircMetaData const*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_CIRCULAR);
+  Rtos_Memcpy(&pCtx->Stream, pStream, sizeof(*pStream));
 
   int iNumSlice = 0;
   bool bIsEndOfFrame = false;
@@ -1560,8 +1105,8 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
   // We do not reorder the filler data suffix or aps suffix because in split input,
   // it is used like an eos / eob and it would affect the parsing / decoding process
   // and we do not use the stream in that case.
-  uint32_t const StartCodeDataEnd = pMeta->iOffset;
-  uint32_t const StreamSize = AL_Buffer_GetSize(pStream);
+  uint32_t const StartCodeDataEnd = pStream->iOffset;
+  uint32_t const StreamSize = pStream->tMD.uSize;
 
   int iNal = -1;
   AL_DecodeNalStep iStep = SEND_NAL_UNTIL_LAST_VCL;
@@ -1570,18 +1115,18 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
 
   for(int iNalIdx = 0; iNalIdx < iNalCount; ++iNalIdx)
   {
-    if(!GetNextNal(pCtx, nals, iNalCount, iLastVclNalInAU, &iNal, &iStep) || iNal >= iNalCount)
+    if(!GetNextNal(pCtx, pNals, iNalCount, iLastVclNalInAU, &iNal, &iStep) || iNal >= iNalCount)
     {
       AL_Default_Decoder_SetError(pCtx, AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE, -1, true);
       return bIsNalProcessed ? SUCCESS_ACCESS_UNIT : ERR_INVALID_ACCESS_UNIT;
     }
-    AL_TNal CurrentNal = nals[iNal];
+    AL_TNal CurrentNal = pNals[iNal];
     AL_TStartCode CurrentStartCode = CurrentNal.tStartCode;
     AL_TStartCode NextStartCode;
 
-    if(iNal + 1 < pCtx->uNumSC)
+    if(iNal + 1 < AL_SearchDecUnit_GetCurNalCount(&pCtx->SearchCtx))
     {
-      NextStartCode = nals[iNal + 1].tStartCode;
+      NextStartCode = pNals[iNal + 1].tStartCode;
     }
     else /* if we didn't wait for the next start code to arrive to decode the current NAL */
     {
@@ -1610,13 +1155,13 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
 
     if(pCtx->eChanState == CHAN_DESTROYING)
     {
-      ConsumeNals(pCtx, iNalCount);
+      AL_SearchDecUnit_ConsumeNals(&pCtx->SearchCtx, iNalCount);
       ResetCurrentFrameFlags(pCtx);
       return ERR_UNIT_FAILED;
     }
   }
 
-  ConsumeNals(pCtx, iNalCount);
+  AL_SearchDecUnit_ConsumeNals(&pCtx->SearchCtx, iNalCount);
 
   if(!bIsNalProcessed && (pCtx->eInputMode == AL_DEC_SPLIT_INPUT))
     return bIsEndOfFrame ? ERR_INVALID_ACCESS_UNIT : ERR_INVALID_NAL_UNIT;
@@ -1651,16 +1196,21 @@ UNIT_ERROR AL_Default_Decoder_TryDecodeOneUnit(AL_TDecoder* pAbsDec, AL_TBuffer*
 
   if(AL_IS_ITU_CODEC(pCtx->pChanParam->eCodec) || AL_IS_JPEG_CODEC(pCtx->pChanParam->eCodec))
   {
-
-    if(isJPEG(pCtx->pChanParam->eCodec) && pCtx->eInputMode == AL_DEC_SPLIT_INPUT)
+    if(pCtx->eInputMode == AL_DEC_SPLIT_INPUT)
     {
-      UNIT_ERROR error = handleFrameJpeg(pCtx, pStream);
 
-      if(error != SUCCESS_ACCESS_UNIT)
-        return error;
+      if(AL_IS_JPEG_CODEC(pCtx->pChanParam->eCodec))
+      {
+        UNIT_ERROR error = handleFrameJpeg(pCtx, pStream);
 
-      return AL_JPEG_DecodeOneNAL(pCtx) ? SUCCESS_ACCESS_UNIT : ERR_INVALID_ACCESS_UNIT;
+        if(error != SUCCESS_ACCESS_UNIT)
+          return error;
+
+        return AL_JPEG_DecodeOneNAL(pCtx) ? SUCCESS_ACCESS_UNIT : ERR_INVALID_ACCESS_UNIT;
+      }
     }
+
+    AL_SearchDecUnit_SetStream(&pCtx->SearchCtx, AL_Buffer_GetData(pStream), AL_Buffer_GetSize(pStream));
 
     int iLastVclNalInAU = LAST_VCL_NAL_IN_AU_NOT_PRESENT;
     int iNalCount = pCtx->eInputMode == AL_DEC_SPLIT_INPUT ? FillNalInfo(pCtx, pStream, &iLastVclNalInAU)
@@ -1669,10 +1219,25 @@ UNIT_ERROR AL_Default_Decoder_TryDecodeOneUnit(AL_TDecoder* pAbsDec, AL_TBuffer*
     if(iNalCount == 0)
       return ERR_UNIT_NOT_FOUND;
 
-    UNIT_ERROR ret = DecodeOneUnit(pCtx, pStream, iNalCount, iLastVclNalInAU);
+    AL_TCircMetaData const* pMeta = (AL_TCircMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_CIRCULAR);
+    AL_TCircBuffer StreamBuf =
+    {
+      {
+        AL_Buffer_GetData(pStream),
+        AL_Buffer_GetPhysicalAddress(pStream),
+        AL_Buffer_GetSize(pStream),
+        pStream->pAllocator,
+        pStream->hBufs[0]
+      },
+      pMeta->iOffset,
+      pMeta->iAvailSize
+    };
+    AL_TNal* pNals = (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr;
+
+    UNIT_ERROR ret = DecodeOneUnit(pCtx, &StreamBuf, pNals, iNalCount, iLastVclNalInAU);
 
     if(pCtx->eInputMode == AL_DEC_SPLIT_INPUT)
-      pCtx->uNumSC = 0;
+      AL_SearchDecUnit_Reset(&pCtx->SearchCtx);
 
     pCtx->tConceal.bSkipRemainingNals = false;
 
@@ -1777,10 +1342,9 @@ void AL_Default_Decoder_FlushInput(AL_TDecoder* pAbsDec)
 {
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = &pDec->ctx;
-  ResetStartCodes(pCtx);
+  AL_SearchDecUnit_Reset(&pCtx->SearchCtx);
   Rtos_GetMutex(pCtx->DecMutex);
   pCtx->iCurOffset = 0;
-  pCtx->iCurNalStreamOffset = 0;
   Rtos_ReleaseMutex(pCtx->DecMutex);
   AL_Feeder_Reset(pCtx->Feeder);
 }
@@ -1879,6 +1443,8 @@ static int GetNumBuffers(AL_TDecCtx* pCtx, AL_TStreamSettings const* pStreamSett
   }
   case AL_CODEC_HEVC:
     return AL_HEVC_GetMinOutputBuffersNeeded(pStreamSettings, iStackSize);
+  case AL_CODEC_JPEG:
+    return 1;
   default:
     break;
   }
@@ -1914,7 +1480,7 @@ static bool ApplyOutputSettings(AL_TDecCtx* pCtx, AL_TDecOutputSettings const* p
   bool bEnableSecondOutput = false;
 
   pAllocator = pCtx->pInternalFrameBufAllocator;
-  bEnableSecondOutput = !AL_IS_JPEG(pCtx->tCurrentStreamSettings.eProfile) && pDecOutputSettings->bCustomFormat;
+  bEnableSecondOutput = pDecOutputSettings->bCustomFormat;
 
   pCtx->PictMngr.tDecOutputSettings = *pDecOutputSettings;
   pCtx->PictMngr.bEnablePostproc = bEnablePostproc;
@@ -2022,9 +1588,9 @@ int AL_Default_Decoder_SkipParsedNals(AL_TDecoder* pAbsDec)
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = AL_sGetContext(pDec);
   Rtos_GetMutex(pCtx->DecMutex);
-  pCtx->iCurOffset = pCtx->iCurNalStreamOffset;
+  pCtx->iCurOffset = AL_SearchDecUnit_GetCurOffset(&pCtx->SearchCtx);
   Rtos_ReleaseMutex(pCtx->DecMutex);
-  return pCtx->iCurNalStreamOffset;
+  return pCtx->iCurOffset;
 }
 
 /*****************************************************************************/
@@ -2058,7 +1624,7 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
 {
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = &pDec->ctx;
-  AL_Assert(!pCtx->bAreBuffersAllocated);
+  Rtos_Assert(!pCtx->bAreBuffersAllocated);
 
   AL_ERR error = AL_ERR_NO_MEMORY;
   pCtx->tInitialStreamSettings = pCtx->tCurrentStreamSettings;
@@ -2068,27 +1634,38 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
     return false;
 
   int iSPSMaxSlices = RoundUp(pCtx->tCurrentStreamSettings.tDim.iHeight, 16) / 16;
-
-  if(isAVC(pCtx->pChanParam->eCodec))
-    iSPSMaxSlices = AL_AVC_GetMaxNumberOfSlices(pStreamSettings->eProfile, pStreamSettings->iLevel,
-                                                pCtx->pChanParam->uClkRatio, pCtx->pChanParam->uFrameRate,
-                                                GetSquareBlkNumber(pStreamSettings->tDim, 16));
-
-  if(isHEVC(pCtx->pChanParam->eCodec))
-    iSPSMaxSlices = AL_HEVC_GetMaxNumberOfSlices(pStreamSettings->iLevel);
-
   int iSizeCompData = 0;
-
-  if(isAVC(pCtx->pChanParam->eCodec))
-    iSizeCompData = AL_GetAllocSize_AvcCompData(pStreamSettings->tDim, pStreamSettings->eChroma);
-
-  if(isHEVC(pCtx->pChanParam->eCodec))
-    iSizeCompData = AL_GetAllocSize_HevcCompData(pStreamSettings->tDim, pStreamSettings->eChroma);
-  int const iSizeCompMap = AL_GetAllocSize_DecCompMap(pStreamSettings->tDim);
-
+  int iSizeCompMap = AL_GetAllocSize_DecCompMap(pStreamSettings->tDim);
   int iSizeALF = 0;
   int iSizeLmcs = 0;
   int iSizeCQp = 0;
+  int iDpbMaxBuf = 0;
+  int iSizeMV = 0;
+  int iMaxBuf = 0;
+  switch(pCtx->pChanParam->eCodec)
+  {
+  case AL_CODEC_AVC:
+    iSPSMaxSlices = AL_AVC_GetMaxNumberOfSlices(pStreamSettings->eProfile, pStreamSettings->iLevel,
+                                                pCtx->pChanParam->uClkRatio, pCtx->pChanParam->uFrameRate,
+                                                GetSquareBlkNumber(pStreamSettings->tDim, 16));
+    iSizeCompData = AL_GetAllocSize_AvcCompData(pStreamSettings->tDim, pStreamSettings->eChroma);
+    iDpbMaxBuf = AL_AVC_GetMaxDpbBuffers(pStreamSettings, pStreamSettings->iMaxRef);
+    iMaxBuf = AL_AVC_GetMinOutputBuffersNeeded(pStreamSettings, pCtx->iStackSize);
+    iSizeMV = AL_GetAllocSize_AvcMV(pStreamSettings->tDim);
+    break;
+  case AL_CODEC_HEVC:
+    iSPSMaxSlices = AL_HEVC_GetMaxNumberOfSlices(pStreamSettings->iLevel);
+    iSizeCompData = AL_GetAllocSize_HevcCompData(pStreamSettings->tDim, pStreamSettings->eChroma);
+    iDpbMaxBuf = AL_HEVC_GetMaxDpbBuffers(pStreamSettings);
+    iMaxBuf = AL_HEVC_GetMinOutputBuffersNeeded(pStreamSettings, pCtx->iStackSize);
+    iSizeMV = AL_GetAllocSize_HevcMV(pStreamSettings->tDim);
+    break;
+  case AL_CODEC_JPEG:
+    iMaxBuf = pCtx->iStackSize;
+    break;
+  default:
+    break;
+  }
 
   int iSizeWP = iSPSMaxSlices * WP_SLICE_SIZE;
   int iSizeSP = iSPSMaxSlices * sizeof(AL_TDecSliceParam);
@@ -2096,32 +1673,9 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
   if(!AL_Default_Decoder_AllocPool(pCtx, iSizeALF, iSizeLmcs, iSizeWP, iSizeSP, iSizeCompData, iSizeCompMap, iSizeCQp))
     goto fail_alloc;
 
-  int iMaxBuf = 0;
-
-  if(isJPEG(pCtx->pChanParam->eCodec))
-  {
-    iMaxBuf = pCtx->iStackSize;
-  }
-  int iDpbMaxBuf = 0;
-  int iSizeMV = 0;
-
-  if(isAVC(pCtx->pChanParam->eCodec))
-  {
-    iDpbMaxBuf = AL_AVC_GetMaxDpbBuffers(pStreamSettings, pStreamSettings->iMaxRef);
-    iMaxBuf = AL_AVC_GetMinOutputBuffersNeeded(pStreamSettings, pCtx->iStackSize);
-    iSizeMV = AL_GetAllocSize_AvcMV(pStreamSettings->tDim);
-  }
-
-  if(isHEVC(pCtx->pChanParam->eCodec))
-  {
-    iDpbMaxBuf = AL_HEVC_GetMaxDpbBuffers(pStreamSettings);
-    iMaxBuf = AL_HEVC_GetMinOutputBuffersNeeded(pStreamSettings, pCtx->iStackSize);
-    iSizeMV = AL_GetAllocSize_HevcMV(pStreamSettings->tDim);
-  }
-
   int iSizePOC = POCBUFF_PL_SIZE;
 
-  if(!isJPEG(pCtx->pChanParam->eCodec))
+  if(!AL_IS_JPEG_CODEC(pCtx->pChanParam->eCodec))
   {
     if(!AL_Default_Decoder_AllocMv(pCtx, iSizeMV, iSizePOC, iMaxBuf))
       goto fail_alloc;
@@ -2201,7 +1755,7 @@ static bool CheckDecodeUnit(AL_EDecUnit eDecUnit)
 /*****************************************************************************/
 static bool CheckAVCSettings(AL_TDecSettings const* pSettings)
 {
-  AL_Assert(isAVC(pSettings->eCodec));
+  Rtos_Assert(isAVC(pSettings->eCodec));
 
   if(pSettings->bParallelWPP)
     return false;
@@ -2313,7 +1867,7 @@ static bool CheckCallBacks(AL_TDecCallBacks* pCallbacks)
 }
 
 /*****************************************************************************/
-static void AssignCallBacks(AL_TDecCtx* const pCtx, AL_TDecCallBacks* pCB)
+static void AssignCallBacks(AL_TDecCtx* pCtx, AL_TDecCallBacks const* pCB)
 {
   pCtx->tDecCB = *pCB;
 }
@@ -2347,7 +1901,7 @@ bool AL_Default_Decoder_AllocPool(AL_TDecCtx* pCtx, int iALFSize, int iLmcsSize,
     AL_SET_DEC_OPT(&pCtx->PoolPP[i], IntraOnly, 1);
     SAFE_POOL_ALLOC(pCtx, &pCtx->PoolSP[i].tMD, iSPSize, "sp");
 
-    if(isITU(eCodec))
+    if(AL_IS_ITU_CODEC(eCodec))
     {
       SAFE_POOL_ALLOC(pCtx, &pCtx->PoolListRefAddr[i].tMD, uRefListSize, "reflist");
       SAFE_POOL_ALLOC(pCtx, &pCtx->PoolSclLst[i].tMD, SCLST_SIZE_DEC, "scllst");
@@ -2415,6 +1969,56 @@ static void InitAUP(AL_TDecCtx* pCtx)
   AL_HDRSEIs_Reset(&pCtx->aup.tActiveHDRSEIs);
 }
 
+static AL_TBuffer* AllocEosBuffer(AL_ECodec eCodec, bool bSplitInput, AL_TAllocator* pAllocator)
+{
+  switch(eCodec)
+  {
+  case AL_CODEC_AVC:
+    return AllocEosBufferAVC(bSplitInput, pAllocator);
+  case AL_CODEC_HEVC:
+    return AllocEosBufferHEVC(bSplitInput, pAllocator);
+  case AL_CODEC_JPEG:
+    (void)bSplitInput;
+    (void)pAllocator;
+    return AllocEosBufferJPEG();
+  default:
+    return NULL;
+  }
+}
+
+/*****************************************************************************/
+AL_TFeeder* CreateFeeder(AL_TDecoder const* pDec, AL_TDecSettings* pSettings, AL_TAllocator* pAllocator)
+{
+  AL_TDecCtx const* pCtx = &pDec->ctx;
+  switch(pCtx->eInputMode)
+  {
+  case AL_DEC_SPLIT_INPUT:
+  {
+    bool bEOSParsingCB = false;
+    int iInputFifoSize = 256;
+    return AL_SplitBufferFeeder_Create((AL_HDecoder)pDec, iInputFifoSize, pCtx->eosBuffer, bEOSParsingCB);
+  }
+
+  case AL_DEC_UNSPLIT_INPUT:
+  {
+    int iInputFifoSize = 256;
+    int iBufferStreamSize = pSettings->iStreamBufSize;
+
+    if(iBufferStreamSize == 0)
+      iBufferStreamSize = GetCircularBufferSize(pCtx->pChanParam->eCodec, pCtx->iStackSize, &pCtx->tCurrentStreamSettings);
+
+    bool bForceAccessUnitDestroy = true;
+
+    return AL_UnsplitBufferFeeder_Create((AL_HDecoder)pDec, iInputFifoSize, pAllocator, iBufferStreamSize, pCtx->eosBuffer, bForceAccessUnitDestroy);
+  }
+
+  default:
+    Rtos_Assert(false);
+  }
+
+  return NULL;
+}
+
 /*****************************************************************************/
 AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB)
 {
@@ -2470,7 +2074,7 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->hDecOutSettingsConfiguredEvt = Rtos_CreateEvent(0);
   pCtx->DecMutex = Rtos_CreateMutex();
 
-  AL_Default_Decoder_SetParam((AL_TDecoder*)pDec, "Ref", 0, 0, false, false);
+  AL_Default_Decoder_SetParam((AL_TDecoder*)pDec, "Ref", 0, 0, false);
 
   // initialize decoder context
   pCtx->bIntraOnlyProfile = false;
@@ -2480,7 +2084,6 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->bIsFirstPicture = true;
   pCtx->bIsFirstSPSChecked = false;
   pCtx->bAreBuffersAllocated = false;
-  pCtx->uNumSC = 0;
   pCtx->iNumSlicesRemaining = 0;
 
   AL_Conceal_Init(&pCtx->tConceal);
@@ -2490,7 +2093,6 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->iNumFrmBlk1 = 0;
   pCtx->iNumFrmBlk2 = 0;
   pCtx->iCurOffset = 0;
-  pCtx->iCurNalStreamOffset = 0;
   pCtx->iTraceCounter = 0;
   pCtx->eChanState = CHAN_UNINITIALIZED;
 
@@ -2499,9 +2101,9 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
   InitAUP(pCtx);
 
-  bool bIsITU = isITU(pSettings->eCodec);
+  bool bIsITU = AL_IS_ITU_CODEC(pSettings->eCodec);
   bool hasSCD = bIsITU;
-  hasSCD |= isJPEG(pSettings->eCodec);
+  hasSCD |= AL_IS_JPEG_CODEC(pSettings->eCodec);
 
   if(hasSCD)
   {
@@ -2511,9 +2113,11 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
     SAFE_ALLOC(pCtx, &pCtx->SCTable.tMD, pCtx->iStackSize * MAX_NAL_UNIT * sizeof(AL_TNal), "sctable");
     AL_CleanupMemory(pCtx->SCTable.tMD.pVirtualAddr, pCtx->SCTable.tMD.uSize);
+
+    AL_SearchDecUnit_Init(&pCtx->SearchCtx, pSettings->eCodec, pSettings->eDecUnit, (AL_TNal*)pCtx->SCTable.tMD.pVirtualAddr, MAX_NAL_UNIT);
   }
 
-  if(isJPEG(pSettings->eCodec))
+  if(AL_IS_JPEG_CODEC(pSettings->eCodec))
   {
     for(int i = 0; i < AL_DEC_SW_MAX_STACK_SIZE; i++)
     {
@@ -2534,16 +2138,8 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
   pCtx->BufNoAE.tMD.uSize = NON_VCL_NAL_SIZE;
 
-  if(isAVC(pCtx->pChanParam->eCodec))
-    pCtx->eosBuffer = AllocEosBufferAVC(pCtx->eInputMode == AL_DEC_SPLIT_INPUT, pAllocator);
-
-  if(isHEVC(pCtx->pChanParam->eCodec))
-    pCtx->eosBuffer = AllocEosBufferHEVC(pCtx->eInputMode == AL_DEC_SPLIT_INPUT, pAllocator);
-
-  if(isJPEG(pCtx->pChanParam->eCodec))
-    pCtx->eosBuffer = AllocEosBufferJPEG();
-
-  AL_Assert(pCtx->eosBuffer);
+  pCtx->eosBuffer = AllocEosBuffer(pCtx->pChanParam->eCodec, pCtx->eInputMode == AL_DEC_SPLIT_INPUT, pAllocator);
+  Rtos_Assert(pCtx->eosBuffer);
 
   if(!pCtx->eosBuffer)
   {
@@ -2553,24 +2149,7 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
   AL_Buffer_Ref(pCtx->eosBuffer);
 
-  int iInputFifoSize = 256;
-
-  if(pCtx->eInputMode == AL_DEC_SPLIT_INPUT)
-  {
-    bool bEOSParsingCB = false;
-    pCtx->Feeder = AL_SplitBufferFeeder_Create((AL_HDecoder)pDec, iInputFifoSize, pCtx->eosBuffer, bEOSParsingCB);
-  }
-  else if(pCtx->eInputMode == AL_DEC_UNSPLIT_INPUT)
-  {
-    int iBufferStreamSize = pSettings->iStreamBufSize;
-
-    if(iBufferStreamSize == 0)
-      iBufferStreamSize = GetCircularBufferSize(pCtx->pChanParam->eCodec, pCtx->iStackSize, &pCtx->tCurrentStreamSettings);
-
-    bool bForceAccessUnitDestroy = true;
-
-    pCtx->Feeder = AL_UnsplitBufferFeeder_Create((AL_HDecoder)pDec, iInputFifoSize, pAllocator, iBufferStreamSize, pCtx->eosBuffer, bForceAccessUnitDestroy);
-  }
+  pCtx->Feeder = CreateFeeder(pDec, pSettings, pAllocator);
 
   if(!pCtx->Feeder)
   {
@@ -2580,7 +2159,7 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 
   bool useStartCode = true;
 
-  useStartCode = !isJPEG(pSettings->eCodec);
+  useStartCode = !AL_IS_JPEG_CODEC(pSettings->eCodec);
 
   pCtx->tOutputPosition = pSettings->tOutputPosition;
 
@@ -2616,4 +2195,4 @@ AL_EFbStorageMode AL_Default_Decoder_GetDisplayStorageMode(AL_TDecCtx const* pCt
   return eDisplayStorageMode;
 }
 
-/*@}*/
+/*!@}*/

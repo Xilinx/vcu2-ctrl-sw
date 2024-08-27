@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup slice_constants Slice Constants
-   @{
+   !@{
    \file
 ******************************************************************************/
 #pragma once
@@ -13,12 +13,12 @@
 #define AL_MAX_NUM_REF 16
 #define AL_MAX_NUM_B_PICT 30
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Maximum number of frame type i.e. (I, P, B)
 *****************************************************************************/
 #define AL_MAX_FRAME_TYPE 3
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Identifies the slice coding type
 *****************************************************************************/
 typedef enum AL_ESliceType
@@ -36,7 +36,7 @@ typedef enum AL_ESliceType
   AL_SLICE_MAX_ENUM, /* sentinel */
 }AL_ESliceType;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Identifies pic_struct (subset of table D-2)
 *****************************************************************************/
 typedef enum AL_EPicStruct
@@ -57,7 +57,7 @@ typedef enum AL_EPicStruct
   AL_PS_MAX_ENUM, /* sentinel */
 }AL_EPicStruct;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief identifies the entropy coding method
 *****************************************************************************/
 typedef enum AL_EEntropyMode
@@ -67,7 +67,7 @@ typedef enum AL_EEntropyMode
   AL_MODE_MAX_ENUM, /* sentinel */
 }AL_EEntropyMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Weighted Pred Mode
 *****************************************************************************/
 typedef enum AL_EWPMode
@@ -78,7 +78,7 @@ typedef enum AL_EWPMode
   AL_WP_MAX_ENUM, /* sentinel */
 }AL_EWPMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Struct for offsets
 *****************************************************************************/
 typedef struct AL_TOffset
@@ -89,7 +89,7 @@ typedef struct AL_TOffset
 
 #define AL_MAX_SLICES_SUBFRAME 32
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Filler Data Control Mode
 *****************************************************************************/
 typedef enum AL_EFillerCtrlMode
@@ -99,7 +99,7 @@ typedef enum AL_EFillerCtrlMode
   AL_FILLER_APP, /*!< 0xFF data filled by the application layer */
 }AL_EFillerCtrlMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Start code bytes aligned mode
 *****************************************************************************/
 typedef enum AL_EStartCodeBytesAlignedMode
@@ -110,4 +110,4 @@ typedef enum AL_EStartCodeBytesAlignedMode
   AL_START_CODE_MAX_ENUM,
 }AL_EStartCodeBytesAlignedMode;
 
-/*@}*/
+/*!@}*/

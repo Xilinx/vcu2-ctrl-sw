@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <assert.h>
-
-#define AL_Assert(condition) \
-  assert(condition)
+#include "lib_common/PicFormat.h"
+#include "lib_common_dec/DecOutputSettings.h"
 

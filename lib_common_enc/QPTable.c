@@ -4,7 +4,6 @@
 #include "lib_common_enc/QPTableInternal.h"
 #include "lib_common_enc/ParamConstraints.h"
 #include "lib_common/Utils.h"
-#include "lib_assert/al_assert.h"
 #include "lib_common/Error.h"
 
 #define BLOCKSIZE_NO_CONSTRAINT 0
@@ -59,7 +58,7 @@ static uint32_t GetEP2OneLCUSize(uint8_t uLog2MaxCuSize, int iQPTableDepth)
     return numBytes[uLog2MaxCuSize - 4];
   }
   default:
-    AL_Assert(0 && "Invalid QP Size");
+    Rtos_Assert(false && "Invalid QP Size");
   }
 
   return 0;

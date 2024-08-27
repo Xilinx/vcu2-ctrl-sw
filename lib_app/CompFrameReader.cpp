@@ -21,8 +21,10 @@ const string CompFrameReader::ErrorMessageCorrupted = "Error reading compressed 
 const string CompFrameReader::ErrorMessagePictureNumber = "Can't go to frame <frame-idx>, compressed YUV contains less frames.";
 const string CompFrameReader::ErrorMessageBufferTooSmall = "Buffer provided to read compressed YUV is too small.";
 const string CompFrameReader::ChromaModeNotHandled = "Given chroma mode is not handled.";
-const string CompFrameReader::InvalidResolution = "User resolution is different from compression resolution.";
-const string CompFrameReader::InvalidChromaMode = "User chroma mode is different from compression chroma mode.";
+const string CompFrameReader::InvalidResolution = "Resolution of the compressed YUV file differs from what we want to read.";
+const string CompFrameReader::InvalidChromaMode = "Chroma-mode of the compressed YUV file differs from what we want to read.";
+const string CompFrameReader::InvalidBitDepth = "Bitdepth of the compressed YUV file differs from what we want to read.";
+const string CompFrameReader::InvalidStorageMode = "Storage-mode (64x4/32x4) of the compressed YUV file differs from what we want to read.";
 
 CompFrameReader::CompFrameReader(std::ifstream& sRecFileName, std::ifstream& sMapFileName, bool bLoopFrames) : FrameReader(sRecFileName, bLoopFrames),
   m_mapFile(sMapFileName), m_uCurrentResIdx(-1), m_uCurrentResFrameIdx(-1), m_readResult(NEW_RESOLUTION_FRAME_RED)
@@ -245,7 +247,7 @@ CompFrameReader::CompFrameReadResult CompFrameReader::GoTo(uint32_t uResIdx, uin
   return m_readResult;
 }
 
-uint32_t CompFrameReader::GetCurFrameIdx(void)
+uint32_t CompFrameReader::GetCurrentFrameIdx(void)
 {
   uint32_t uFrameCnt = m_uCurrentResFrameIdx;
 
@@ -253,6 +255,21 @@ uint32_t CompFrameReader::GetCurFrameIdx(void)
     uFrameCnt += m_vResolutions[m_uCurrentResIdx].uResFrameCnt;
 
   return uFrameCnt;
+}
+
+AL_EChromaMode CompFrameReader::GetCurrentChromaMode() const
+{
+  return GetCurrentHeader().tPicFormat.eChromaMode;
+}
+
+uint8_t CompFrameReader::GetCurrentBitDepth() const
+{
+  return GetCurrentHeader().tPicFormat.uBitDepth;
+}
+
+uint8_t CompFrameReader::GetCurrentStorageMode() const
+{
+  return GetCurrentHeader().tPicFormat.eStorageMode;
 }
 
 void CompFrameReader::ParseBuffer(std::ifstream& m_stream, uint8_t* pBuf, size_t bufSize, uint32_t uReadSize)
@@ -339,13 +356,18 @@ bool CompFrameReader::ReadFrame(AL_TBuffer* pBuffer)
 
   AL_TDimension tDim = AL_PixMapBuffer_GetDimension(pBuffer);
   TCompFrameResolution compRes = GetCurrentResolution();
-  AL_EChromaMode eChromaMode = GetCurrentChromaMode();
 
   if(compRes.uWidth != tDim.iWidth || compRes.uHeight != tDim.iHeight)
     throw runtime_error(InvalidResolution);
 
-  if(eChromaMode != tPicFormat.eChromaMode)
+  if(GetCurrentChromaMode() != tPicFormat.eChromaMode)
     throw runtime_error(InvalidChromaMode);
+
+  if(GetCurrentBitDepth() != tPicFormat.uBitDepth)
+    throw runtime_error(InvalidBitDepth);
+
+  if(GetCurrentStorageMode() != tPicFormat.eStorageMode)
+    throw runtime_error(InvalidStorageMode);
 
   if(AL_PLANE_MODE_PLANAR == tPicFormat.ePlaneMode)
   {
@@ -381,7 +403,7 @@ void CompFrameReader::SeekA(uint32_t uFrameIdx)
 
 void CompFrameReader::SeekR(int iFrameDlt)
 {
-  int iFrameIdx = int(GetCurFrameIdx()) + iFrameDlt;
+  int iFrameIdx = int(GetCurrentFrameIdx()) + iFrameDlt;
 
   if(iFrameIdx < 0)
     iFrameIdx = 0;

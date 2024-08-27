@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_base
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -15,8 +13,6 @@
 #include "lib_common/BufferPixMapMeta.h"
 
 #include "lib_common/FbcMapSize.h"
-
-#include "lib_assert/al_assert.h"
 
 /*****************************************************************************/
 int32_t RndPitch(int32_t iWidth, AL_TPicFormat const* pPicFormat)
@@ -83,7 +79,7 @@ static int GetChromaAllocSize(AL_EChromaMode eChromaMode, int iAllocSizeY)
   case AL_CHROMA_4_4_4:
     return iAllocSizeY << 1;
   default:
-    AL_Assert(0);
+    Rtos_Assert(false);
     break;
   }
 
@@ -207,6 +203,13 @@ int AL_DecGetAllocSize_Frame(AL_TDimension tDim, int iPitch, AL_TPicFormat tPicF
 
   for(int iPlane = 0; iPlane < iNbPlanes; iPlane++)
   {
+
+    if(AL_Plane_IsMapPlane(usedPlanes[iPlane]))
+    {
+      tPicFormat.bCompressed = true;
+      uSize += AL_DecGetAllocSize_Frame_MapPlane(&tPicFormat, tDim, usedPlanes[iPlane]);
+    }
+    else
     uSize += AL_DecGetAllocSize_Frame_PixPlane(&tPicFormat, tDim, iPitch, usedPlanes[iPlane]);
   }
 
@@ -240,7 +243,7 @@ AL_TMetaData* AL_CreateRecBufMetaData(AL_TDimension tDim, int iMinPitch, TFourCC
   if(!bSuccess)
   {
     AL_MetaData_Destroy((AL_TMetaData*)pSrcMeta);
-    AL_Assert(bSuccess);
+    Rtos_Assert(bSuccess);
     return NULL;
   }
 
@@ -260,6 +263,23 @@ AL_TMetaData* AL_CreateRecBufMetaData(AL_TDimension tDim, int iMinPitch, TFourCC
     iOffset += AL_DecGetAllocSize_Frame_PixPlane(&tPicFormat, tDim, iPitch, usedPlanes[iPlane]);
   }
 
+  if(AL_IsCompressed(tFourCC))
+  {
+    int iMapPitch = AL_GetFbcMapPitch(tDim.iWidth, tPicFormat.eStorageMode, tPicFormat.uBitDepth);
+
+    int iNbPlanes = AL_Plane_GetBufferMapPlanes(tPicFormat, usedPlanes);
+
+    for(int iPlane = 0; iPlane < iNbPlanes; iPlane++)
+    {
+      int iPitch = usedPlanes[iPlane] == AL_PLANE_MAP_Y ? iMapPitch : AL_GetChromaPitch(tFourCC, iMapPitch);
+      AL_PixMapMetaData_AddPlane(pSrcMeta, (AL_TPlane) {0, iOffset, iPitch }, usedPlanes[iPlane]);
+
+      if(usedPlanes[iPlane] == AL_PLANE_MAP_U)
+        AL_PixMapMetaData_AddPlane(pSrcMeta, (AL_TPlane) {0, iOffset, iPitch }, AL_PLANE_MAP_UV);
+
+      iOffset += AL_DecGetAllocSize_Frame_MapPlane(&tPicFormat, tDim, usedPlanes[iPlane]);
+    }
+  }
   return (AL_TMetaData*)pSrcMeta;
 }
 

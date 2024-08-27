@@ -13,6 +13,7 @@
 #include "lib_app/YuvIO.h"
 
 using namespace std;
+
 extern "C"
 {
 #include "lib_common/PixMapBuffer.h"
@@ -20,7 +21,6 @@ extern "C"
 }
 
 /*****************************************************************************/
-
 static inline int RoundUp(int iVal, int iRnd)
 {
   return (iVal + iRnd - 1) / iRnd * iRnd;
@@ -150,13 +150,13 @@ void GotoFirstPicture(AL_TYUVFileInfo const& FI, ifstream& File, unsigned int iF
   File.seekg(iPictLen * iFirstPict);
 }
 
-typedef struct tPaddingParams
+struct TPaddingParams
 {
   uint32_t uPadValue;
   uint32_t uNBByteToPad;
   uint32_t uPaddingOffset;
   uint32_t uFirst32PackPadMask;
-}TPaddingParams;
+};
 
 /*****************************************************************************/
 static TPaddingParams GetColumnPaddingParameters(TFourCC tFourCC, AL_TDimension tDim, int iPitch, uint32_t uFileRowSize, bool isLuma)

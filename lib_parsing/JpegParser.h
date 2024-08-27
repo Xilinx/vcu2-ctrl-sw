@@ -80,7 +80,7 @@ static inline bool IsAppData(EJpeg_Marker eMarker)
   return eMarker >= APP0_MARKER && eMarker <= APP15_MARKER;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function parses jpeg headers
    \param[out] pJP    Pointer to the header structure that will be filled
    \param[in]  pRP    Pointer to NAL buffer

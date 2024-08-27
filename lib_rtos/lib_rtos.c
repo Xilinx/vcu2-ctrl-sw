@@ -12,6 +12,16 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <assert.h>
+#include <stdbool.h>
+
+/****************************************************************************/
+void Rtos_AssertWithMessage(bool bCondition, char const* sMsg)
+{
+  (void)bCondition;
+  (void)sMsg;
+  assert(bCondition && sMsg);
+}
 
 /****************************************************************************/
 void* Rtos_Malloc(size_t zSize)
@@ -50,7 +60,7 @@ int Rtos_Memcmp(void const* pBuf1, void const* pBuf2, size_t zSize)
 }
 
 /****************************************************************************/
-void Rtos_LogWithoutLevel(char const* const sMsg, ...)
+void Rtos_LogWithoutLevel(char const* sMsg, ...)
 {
   va_list args;
   va_start(args, sMsg);
@@ -87,7 +97,7 @@ int Rtos_Memcmp(void const* pBuf1, void const* pBuf2, size_t zSize)
 }
 
 /****************************************************************************/
-void Rtos_LogWithoutLevel(char const* const sMsg, ...)
+void Rtos_LogWithoutLevel(char const* sMsg, ...)
 {
   (void)sMsg;
 }

@@ -1,0 +1,9 @@
+Creation of the firmware
+=========================
+
+Calling make will compile your plugin (specify the sources in plugin.mk) and
+will wrap the firmware with your plugin.
+
+$ make -f MakefilePlugin
+
+Compilation results are the new firmware plugged_encoder_firmware.bin

@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_app
-   @{
+   !@{
    \file
  *****************************************************************************/
 #pragma once
@@ -23,14 +21,14 @@ extern "C"
 #include <array>
 #include <iostream>
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Mimics structure for RUN Section of cfg file
 *****************************************************************************/
 typedef AL_INTROSPECT (category = "debug") struct tCfgRunInfo
 {
-  std::string encDevicePath;
-  AL_EDeviceType iDeviceType;
-  AL_ESchedulerType iSchedulerType;
+  std::vector<std::string> encDevicePaths;
+  AL_EDeviceType eDeviceType;
+  AL_ESchedulerType eSchedulerType;
   bool bLoop;
   int iMaxPict;
   unsigned int iFirstPict;
@@ -46,9 +44,10 @@ typedef AL_INTROSPECT (category = "debug") struct tCfgRunInfo
   std::string bitrateFile = "";
   AL_64U uInputSleepInMilliseconds;
   AL_EGenerateQpMode eGenerateQpMode = AL_GENERATE_UNIFORM_QP;
+  bool bEmulateSrcSync = false;
 }TCfgRunInfo;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Mimics structure for a configuration of an YUV Input
 *****************************************************************************/
 typedef AL_INTROSPECT (category = "debug") struct tConfigYUVInput
@@ -70,7 +69,7 @@ typedef AL_INTROSPECT (category = "debug") struct tConfigYUVInput
   std::string sRoiFileName;
 }TConfigYUVInput;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Source format
 *****************************************************************************/
 typedef enum
@@ -84,7 +83,7 @@ typedef enum
   AL_SRC_FORMAT_MAX_ENUM,
 }AL_ESrcFormat;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Whole configuration file
 *****************************************************************************/
 AL_INTROSPECT(category = "debug") struct ConfigFile
@@ -163,4 +162,4 @@ struct CfgParser final
 private:
   Temporary temporaries {};
 };
-/*@}*/
+/*!@}*/
