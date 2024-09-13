@@ -32,10 +32,10 @@ extern "C"
 void CIpDevice::ConfigureRiscv(CIpDeviceParam& param)
 {
   m_pScheduler = nullptr;
-  m_ctx = AL_Riscv_Encode_CreateCtx(param.pCfgFile->RunInfo.encDevicePaths.at(0).c_str());
+  m_ctx = AL_Riscv_Encode_CreateCtx(param.pCfgFile->RunInfo.encDevicePaths.back().c_str());
 
   if(!m_ctx)
-    throw std::runtime_error("Failed to create context (trying to use " + param.pCfgFile->RunInfo.encDevicePaths.at(0) + ")");
+    throw std::runtime_error("Failed to create context (trying to use " + param.pCfgFile->RunInfo.encDevicePaths.back() + ")");
 
   m_pAllocator = AL_Riscv_Encode_DmaAlloc_Create(m_ctx);
   m_pTimer = nullptr;
